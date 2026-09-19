@@ -866,6 +866,9 @@
 </style>
 </head>
 <body>
+<!-- Temporary on-device debug HUD -- see apply_debug_hud_and_sheet_fix.py
+     for why this exists. Remove once the app is confirmed stable. -->
+<div id="debugHud" style="position:fixed;top:2px;left:2px;z-index:999999;background:rgba(0,0,0,0.82);color:#7CFC9A;font:9px/1.35 monospace;padding:5px 7px;border-radius:6px;max-width:280px;white-space:pre-wrap;pointer-events:none;"></div>
 <div class="app">
   <div class="splash" id="splash" hidden>
     <div class="splash-inner">
@@ -965,6 +968,34 @@
   // silently leaving every button unresponsive.
   try{
   const STORAGE_KEY = 'chores:list';
+  // --- Debug HUD ---------------------------------------------------
+  const debugHud = document.getElementById('debugHud');
+  const debugLines = [];
+  function debugLog(msg){
+    const t = new Date();
+    const ts = String(t.getHours()).padStart(2,'0') + ':' + String(t.getMinutes()).padStart(2,'0') + ':' + String(t.getSeconds()).padStart(2,'0');
+    debugLines.push(ts + ' ' + msg);
+    if(debugLines.length > 8) debugLines.shift();
+    renderDebugHud();
+  }
+  function sheetState(el){
+    if(!el) return 'missing';
+    return 'hidden=' + el.hidden + ' show=' + el.classList.contains('show');
+  }
+  function renderDebugHud(){
+    if(!debugHud) return;
+    const capPresent = !!window.Capacitor;
+    const kbPluginPresent = !!(window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Keyboard);
+    const kbInset = document.documentElement.style.getPropertyValue('--kb-inset') || '(unset)';
+    const snapshot = [
+      'Capacitor: ' + capPresent + ' | Keyboard plugin: ' + kbPluginPresent,
+      'kb-inset: ' + kbInset,
+      'addSheet: ' + sheetState(document.getElementById('addSheet')),
+      'multiSheet: ' + sheetState(document.getElementById('multiSheet'))
+    ].join('\n');
+    debugHud.textContent = snapshot + '\n---\n' + debugLines.join('\n');
+  }
+  debugLog('script started');
   const list = document.getElementById('list');
   const tally = document.getElementById('tally');
   const compactTally = document.getElementById('compactTally');
@@ -1041,19 +1072,30 @@
   const SHEET_TRANSITION_MS = 200;
 
   function openSheet(sheetEl, focusEl){
+    debugLog('openSheet ' + (sheetEl && sheetEl.id));
     openSheetEl = sheetEl;
     sheetBackdrop.hidden = false;
     sheetEl.hidden = false;
+    // Force a synchronous style/layout flush BEFORE the .show class is
+    // added -- see the big comment at the top of this file for why.
+    void sheetBackdrop.offsetHeight;
+    void sheetEl.offsetHeight;
     window.requestAnimationFrame(() => {
-      sheetBackdrop.classList.add('show');
-      sheetEl.classList.add('show');
+      window.requestAnimationFrame(() => {
+        sheetBackdrop.classList.add('show');
+        sheetEl.classList.add('show');
+        debugLog('applied .show to ' + (sheetEl && sheetEl.id));
+        renderDebugHud();
+      });
     });
     if(focusEl){
       window.setTimeout(() => focusEl.focus(), SHEET_TRANSITION_MS + 20);
     }
+    renderDebugHud();
   }
   function closeSheet(){
     if(!openSheetEl) return;
+    debugLog('closeSheet ' + openSheetEl.id);
     const el = openSheetEl;
     openSheetEl = null;
     el.classList.remove('show');
@@ -1061,11 +1103,13 @@
     window.setTimeout(() => {
       el.hidden = true;
       sheetBackdrop.hidden = true;
+      renderDebugHud();
     }, SHEET_TRANSITION_MS);
+    renderDebugHud();
   }
 
-  fabBtn.addEventListener('click', () => openSheet(addSheet, addInput));
-  fabMultiBtn.addEventListener('click', () => openSheet(multiSheet, multiTitle));
+  fabBtn.addEventListener('click', () => { debugLog('fabBtn clicked'); openSheet(addSheet, addInput); });
+  fabMultiBtn.addEventListener('click', () => { debugLog('fabMultiBtn clicked'); openSheet(multiSheet, multiTitle); });
   sheetBackdrop.addEventListener('click', () => closeSheet());
   document.addEventListener('keydown', (e) => {
     if(e.key === 'Escape' && openSheetEl) closeSheet();
