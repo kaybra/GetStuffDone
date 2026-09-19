@@ -22,6 +22,7 @@
     --yellow: #ffe9a8;
     --line: rgba(243,236,255,0.12);
     --radius: 14px;
+    --kb-inset: 0px;
   }
 
   *{ box-sizing: border-box; }
@@ -701,7 +702,7 @@
   .sheet{
     position: fixed;
     left: 50%;
-    bottom: 0;
+    bottom: var(--kb-inset, 0px);
     transform: translateX(-50%) translateY(16px);
     width: 100%;
     max-width: 440px;
@@ -915,7 +916,7 @@
 
   <p class="status-line" id="statusLine"></p>
 
-  <p class="version-tag">v0.34</p>
+  <p class="version-tag">v0.35</p>
   <p class="credit-line">Inspired by a video by Simone Giertz,<br>please check out <a class="credit-link" href="https://www.youtube.com/@simonegiertz" target="_blank" rel="noopener noreferrer">her channel</a></p>
   <p class="support-line">This app is free and ad-free, but you can<br><a class="credit-link" href="https://ko-fi.com/getstuffdone" target="_blank" rel="noopener noreferrer">buy me a coffee here</a></p>
 </div>
@@ -1009,6 +1010,21 @@
   let saveTimer = null;
   let previousRemaining = null;
   let hideCompleted = false;
+
+  // Keeps the bottom sheets above the on-screen keyboard on iPad/iPhone
+  // Safari (fixes: sheet opens but is hidden under the keyboard).
+  function setupKeyboardAvoidance(){
+    const vv = window.visualViewport;
+    if(!vv) return;
+    function update(){
+      const inset = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+      document.documentElement.style.setProperty('--kb-inset', inset + 'px');
+    }
+    vv.addEventListener('resize', update);
+    vv.addEventListener('scroll', update);
+    update();
+  }
+  setupKeyboardAvoidance();
 
   // Floating add buttons + the two bottom sheets. Tapping the main FAB
   // opens the single-chore sheet directly (the default action); tapping
