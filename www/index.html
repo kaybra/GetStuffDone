@@ -924,7 +924,7 @@
 
   <p class="status-line" id="statusLine"></p>
 
-  <p class="version-tag">v0.38</p>
+  <p class="version-tag">v0.39</p>
   <p class="credit-line">Inspired by a video by Simone Giertz,<br>please check out <a class="credit-link" href="https://www.youtube.com/@simonegiertz" target="_blank" rel="noopener noreferrer">her channel</a></p>
   <p class="support-line">This app is free and ad-free, but you can<br><a class="credit-link" href="https://ko-fi.com/getstuffdone" target="_blank" rel="noopener noreferrer">buy me a coffee here</a></p>
 </div>
@@ -977,11 +977,12 @@
   // --- Debug HUD ---------------------------------------------------
   const debugHud = document.getElementById('debugHud');
   const debugLines = [];
+  const tapCounts = { fabBtn: 0, fabMultiBtn: 0, backdrop: 0, otherClicks: 0 };
   function debugLog(msg){
     const t = new Date();
     const ts = String(t.getHours()).padStart(2,'0') + ':' + String(t.getMinutes()).padStart(2,'0') + ':' + String(t.getSeconds()).padStart(2,'0');
     debugLines.push(ts + ' ' + msg);
-    if(debugLines.length > 8) debugLines.shift();
+    if(debugLines.length > 20) debugLines.shift();
     renderDebugHud();
   }
   function sheetState(el){
@@ -997,11 +998,21 @@
       'Capacitor: ' + capPresent + ' | Keyboard plugin: ' + kbPluginPresent,
       'kb-inset: ' + kbInset,
       'addSheet: ' + sheetState(document.getElementById('addSheet')),
-      'multiSheet: ' + sheetState(document.getElementById('multiSheet'))
+      'multiSheet: ' + sheetState(document.getElementById('multiSheet')),
+      'taps -- fab:' + tapCounts.fabBtn + ' multiFab:' + tapCounts.fabMultiBtn + ' backdrop:' + tapCounts.backdrop + ' other:' + tapCounts.otherClicks
     ].join('\n');
     debugHud.textContent = snapshot + '\n---\n' + debugLines.join('\n');
   }
   debugLog('script started');
+  document.addEventListener('click', (e) => {
+    const t = e.target;
+    const label = t && (t.id ? ('#' + t.id) : (t.className ? ('.' + String(t.className).split(' ')[0]) : t.tagName));
+    if(t && t.closest && t.closest('#fabBtn')) tapCounts.fabBtn++;
+    else if(t && t.closest && t.closest('#fabMultiBtn')) tapCounts.fabMultiBtn++;
+    else if(t && t.closest && t.closest('#sheetBackdrop')) tapCounts.backdrop++;
+    else tapCounts.otherClicks++;
+    debugLog('click target=' + label);
+  }, true);
   const list = document.getElementById('list');
   const tally = document.getElementById('tally');
   const compactTally = document.getElementById('compactTally');
