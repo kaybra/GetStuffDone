@@ -734,6 +734,24 @@
   #addSheet{ display: flex; flex-direction: column; }
 
   #multiSheet{ display: flex; flex-direction: column; gap: 10px; }
+  /* THE ACTUAL BUG (found via the debug HUD's click-target logging):
+     the browser's own default stylesheet has a rule roughly equivalent
+     to `[hidden]{ display: none }`, but ANY author (page) stylesheet
+     rule that sets `display` on the same element overrides that
+     default, regardless of the `hidden` attribute -- and `#addSheet{
+     display: flex; }` / `#multiSheet{ display: flex; }` above do
+     exactly that, unconditionally. That means setting `sheetEl.hidden =
+     true` in JS was NEVER actually removing these sheets from layout --
+     they stayed `display: flex`, fully positioned at the bottom of the
+     screen and fully clickable, at all times, even when "closed". The
+     only thing `.sheet{ opacity: 0 }` did was make them invisible while
+     closed -- which is exactly why taps at the bottom of the screen
+     always hit real buttons (.hint, #multiSave, #multiCancel, the sheet
+     itself) whether or not the FAB had ever been pressed. This override
+     (higher specificity than the plain `#addSheet`/`#multiSheet` rules
+     above, since it adds `[hidden]` on top of the same ID) is what
+     actually removes them from layout once more, when hidden. */
+  #addSheet[hidden], #multiSheet[hidden]{ display: none; }
   #multiSheet input, #multiSheet textarea{
     width:100%;
     background: rgba(0,0,0,0.2);
@@ -924,7 +942,7 @@
 
   <p class="status-line" id="statusLine"></p>
 
-  <p class="version-tag">v0.39</p>
+  <p class="version-tag">v0.40</p>
   <p class="credit-line">Inspired by a video by Simone Giertz,<br>please check out <a class="credit-link" href="https://www.youtube.com/@simonegiertz" target="_blank" rel="noopener noreferrer">her channel</a></p>
   <p class="support-line">This app is free and ad-free, but you can<br><a class="credit-link" href="https://ko-fi.com/getstuffdone" target="_blank" rel="noopener noreferrer">buy me a coffee here</a></p>
 </div>
