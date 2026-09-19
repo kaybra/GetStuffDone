@@ -4,11 +4,15 @@ workflows:
     max_build_duration: 60
     instance_type: mac_mini_m2
 
-    # "GSD_MCH_ASC_KEY" must match the name you give the App Store Connect
-    # API key when you connect it under Codemagic Team settings >
-    # Integrations > Developer Portal (see the walkthrough alongside this
-    # file). Codemagic uses that stored key for both code signing and
-    # publishing below - no secrets live in this file.
+    # "GSD_MCH_ASC_KEY" must match the name you gave the App Store Connect
+    # API key when you connected it under Codemagic Team settings >
+    # Integrations > Developer Portal. Codemagic uses that stored key to
+    # AUTOMATICALLY fetch/create the certificate and provisioning profile
+    # before any of the scripts below even run - that's what the
+    # `ios_signing` block underneath triggers. Do NOT also add manual
+    # `app-store-connect fetch-signing-files` / `keychain` / `use-profiles`
+    # scripts - mixing the two signing methods is what caused the
+    # "No matching profiles found" error.
     integrations:
       app_store_connect: GSD_MCH_ASC_KEY
 
@@ -17,7 +21,6 @@ workflows:
         distribution_type: app_store
         bundle_identifier: com.getstuffdone.gsdmch
       vars:
-        BUNDLE_ID: "com.getstuffdone.gsdmch"
         XCODE_WORKSPACE: "ios/App/App.xcworkspace"
         XCODE_SCHEME: "App"
       node: 20
@@ -42,21 +45,6 @@ workflows:
       - name: Install CocoaPods dependencies
         script: |
           cd ios/App && pod install
-
-      - name: Set up keychain for code signing
-        script: keychain initialize
-
-      - name: Fetch signing files from App Store Connect
-        script: |
-          app-store-connect fetch-signing-files "$BUNDLE_ID" \
-            --type IOS_APP_STORE \
-            --create
-
-      - name: Add certificates to keychain
-        script: keychain add-certificates
-
-      - name: Apply code signing settings to the Xcode project
-        script: xcode-project use-profiles
 
       - name: Set build number
         script: |
