@@ -916,7 +916,7 @@
 
   <p class="status-line" id="statusLine"></p>
 
-  <p class="version-tag">v0.35</p>
+  <p class="version-tag">v0.36</p>
   <p class="credit-line">Inspired by a video by Simone Giertz,<br>please check out <a class="credit-link" href="https://www.youtube.com/@simonegiertz" target="_blank" rel="noopener noreferrer">her channel</a></p>
   <p class="support-line">This app is free and ad-free, but you can<br><a class="credit-link" href="https://ko-fi.com/getstuffdone" target="_blank" rel="noopener noreferrer">buy me a coffee here</a></p>
 </div>
@@ -960,6 +960,10 @@
 
 <script>
 (function(){
+  // Everything below runs inside this try/catch so that if anything
+  // throws, the failure is visible on screen as a red banner instead of
+  // silently leaving every button unresponsive.
+  try{
   const STORAGE_KEY = 'chores:list';
   const list = document.getElementById('list');
   const tally = document.getElementById('tally');
@@ -1563,6 +1567,14 @@
   });
 
   load();
+  } catch(err){
+    try{
+      var errBanner = document.createElement('div');
+      errBanner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#c0392b;color:#fff;padding:10px 14px;font:12px/1.4 monospace;white-space:pre-wrap;max-height:45vh;overflow:auto;';
+      errBanner.textContent = 'JS ERROR: ' + ((err && (err.stack || err.message)) || err);
+      document.body.appendChild(errBanner);
+    }catch(err2){}
+  }
 })();
 </script>
 </body>
