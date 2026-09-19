@@ -1,0 +1,12 @@
+{
+  "appId": "com.getstuffdone.gsdmch",
+  "appName": "GSD MCH",
+  "webDir": "www",
+  "backgroundColor": "#180b2e",
+  "ios": {
+    "backgroundColor": "#180b2e"
+  },
+  "server": {
+    "androidScheme": "https"
+  }
+}

@@ -1,0 +1,1553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>GSD MCH v0.11</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Work+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #180b2e;
+    --bg-2: #230f42;
+    --card: #251440;
+    --card-2: #2c1a4d;
+    --ink: #f3ecff;
+    --ink-dim: #b7a8d9;
+    --pink: #ff9ecd;
+    --cyan: #8ff2ff;
+    --lav: #c9afff;
+    --mint: #a8ffd9;
+    --yellow: #ffe9a8;
+    --line: rgba(243,236,255,0.12);
+    --radius: 14px;
+  }
+
+  *{ box-sizing: border-box; }
+
+  /* Turns off the browser's automatic scroll anchoring for the whole
+     page. Scroll anchoring exists to stop the viewport jumping when
+     content ABOVE it resizes unexpectedly — but here it actively fights
+     the sticky picker's own compact/maximised transition: the picker
+     sits near the top of the viewport and its height changes by dozens
+     of pixels when `.compact` toggles (padding shrinks), and the browser
+     tries to compensate by silently nudging scrollY to hide that jump.
+     That compensation itself fires more scroll events, which our own
+     compact-state handler reacts to, which can flip the class back,
+     which shifts the height again — a feedback loop between this app's
+     JS and the browser's own scroll-position "fixing", independent of
+     any hysteresis in the JS (verified directly: toggling `.compact`
+     with zero scrolling at all still produces a wildly oscillating
+     scrollY on its own). Disabling anchoring removes the browser's side
+     of that fight entirely; our own compact-state logic already reads
+     real layout every frame, so nothing here depends on anchoring to
+     "feel" smooth. */
+  html, body{ overflow-anchor: none; }
+
+  body{
+    margin:0;
+    min-height:100vh;
+    background:
+      radial-gradient(circle at 15% 0%, rgba(255,158,205,0.16), transparent 45%),
+      radial-gradient(circle at 90% 10%, rgba(143,242,255,0.14), transparent 40%),
+      radial-gradient(circle at 50% 100%, rgba(201,175,255,0.16), transparent 50%),
+      linear-gradient(180deg, var(--bg) 0%, var(--bg-2) 100%);
+    background-attachment: fixed;
+    font-family: 'Work Sans', sans-serif;
+    color: var(--ink);
+    display:flex;
+    justify-content:center;
+    padding: 30px 14px 44px;
+    position: relative;
+    overflow-x: hidden;
+  }
+
+  .app{
+    width:100%;
+    max-width: 440px;
+    position: relative;
+    z-index: 1;
+    /* Clears the fixed FAB layer (58px button + its own bottom offset)
+       so the version tag / credit line at the very end of the page don't
+       end up sitting underneath it once a user scrolls all the way down. */
+    padding-bottom: calc(90px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* Header (title, subtitle, chore-count badge) is plain, normal-flow
+     content — it scrolls away natively with the page. No animation, no
+     JS involvement: this is what keeps it jank-free and never fights
+     the browser's own scroll physics. */
+  header{ padding: 4px 6px 22px; }
+
+  h1{
+    font-family:'Space Grotesk', sans-serif;
+    font-weight:700;
+    font-size: 2.5rem;
+    letter-spacing: -0.01em;
+    margin: 0 0 6px;
+    color: var(--ink);
+    text-shadow: 0 0 18px rgba(255,158,205,0.45), 0 0 40px rgba(143,242,255,0.18);
+  }
+
+  .subtitle{
+    margin: 0 0 10px;
+    font-family:'Space Grotesk', sans-serif;
+    font-weight:600;
+    font-size: 0.82rem;
+    letter-spacing: 0.04em;
+    color: var(--cyan);
+    text-shadow: 0 0 12px rgba(143,242,255,0.4);
+  }
+
+  .header-row{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap: 14px;
+  }
+
+  /* Not a button — same outlined, no-fill treatment as the compact top
+     bar's #compactTally badge (pink border + pink text), so the
+     completed-count indicator looks and reads consistently whether the
+     top bar is maximised (this badge) or scrolled down to compact
+     (#compactTally). */
+  .tally-badge{
+    flex: 0 0 auto;
+    margin-top: 2px;
+    background: transparent;
+    border: 1.5px solid var(--pink);
+    color: var(--pink);
+    font-family:'Space Grotesk', sans-serif;
+    font-weight:700;
+    font-size: 1.12rem;
+    padding: 10.5px 18.5px;
+    border-radius: 999px;
+    white-space: nowrap;
+    box-shadow: 0 0 10px rgba(255,158,205,0.2);
+  }
+
+  /* Picker — this is the part that stays pinned to the top of the screen.
+     It already has an opaque card background, so nothing extra is needed
+     to cover list items scrolling underneath it.
+     Once the header has scrolled fully out of view, JS adds `.compact`,
+     which shrinks padding/type size (and switches picker-actions from a
+     stacked column to a single row — see below) to reclaim screen space.
+     That's a genuinely large size change (the stacked buttons are much
+     taller than one row), and it happens on a `position: sticky` element
+     pinned right at the top of the viewport.
+     Only `box-shadow` is transitioned here — padding and margin are NOT,
+     even though that means they snap instantly rather than animating.
+     That's deliberate: this element is stuck at the very top of the
+     screen, so ANY property that changes its rendered height, animated
+     smoothly over multiple frames, was found (via real-browser testing)
+     to fight the browser's own scroll-position handling for a sticky
+     element near the viewport edge — each intermediate frame of the
+     transition nudged scrollY on its own, and that drift could cross
+     back over the compact/maximised threshold and flip it again,
+     producing exactly the flicker/"fighting" this is built to avoid.
+     Snapping instantly means the whole size change happens within a
+     single frame instead of dozens, which keeps that drift to at most
+     one small settle instead of a multi-frame cascade — combined with
+     the hysteresis in updateCompactState() (see the JS below), that
+     single settle is comfortably smaller than the dead zone and can't
+     re-trigger the toggle. */
+  .picker{
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: linear-gradient(155deg, var(--card), var(--card-2));
+    border-radius: var(--radius);
+    padding: 22px;
+    margin-bottom: 22px;
+    border: 1px solid rgba(255,255,255,0.08);
+    box-shadow: 0 0 0 1px rgba(255,158,205,0.15), 0 18px 40px rgba(0,0,0,0.4), 0 0 30px rgba(201,175,255,0.10);
+    overflow: hidden;
+    overflow-anchor: none;
+    transition: box-shadow 0.15s ease-out;
+  }
+  .picker.compact{
+    padding: 12px 16px;
+    margin-bottom: 14px;
+    box-shadow: 0 0 0 1px rgba(255,158,205,0.15), 0 12px 28px rgba(0,0,0,0.45);
+  }
+
+  .picker::before{
+    content:"";
+    position:absolute;
+    top:0; left:0; right:0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--pink), var(--cyan), var(--lav), var(--mint));
+    opacity:0.85;
+  }
+
+  /* picker-actions holds the pick button + the clear/filter buttons.
+     Normally they just stack (default block flow). Once compact, it
+     switches to a row of three equal-width slots — the pick button, the
+     clear/filter column, and the completed-count badge — all flex:1, so
+     every button ends up the same width and the row fills edge-to-edge
+     with no blank gaps. */
+  .picker-actions{ transition: gap 0.15s ease-out; }
+  .picker.compact .picker-actions{
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .secondary-actions{ transition: gap 0.15s ease-out; }
+  .picker.compact .secondary-actions{
+    flex: 1 1 0;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  /* Completed-count badge shown only in the compact top bar, since the
+     header's own tally-badge scrolls out of view once compact kicks in.
+     Mirrors the same text as #tally so the count stays visible at all
+     times, just relocated. It isn't a button (tapping it does nothing),
+     so — matching the maximised header's own #tally badge — it's styled
+     as an outlined badge (pink border, pink text, no fill) to read as
+     informational rather than tappable.
+
+     The outer .compact-tally is kept a bare, padding-free flex item
+     (just flex:1 1 0 + a fixed height) so it shares EXACTLY equal width
+     with the pick button and the clear/filter column. All the visible
+     styling (border, padding, radius, color) lives on the inner
+     .compact-tally-inner instead, sized to 100%/100% of the outer box.
+     This split matters: giving the flex item itself horizontal padding
+     and a border, combined with flex-basis:0 + box-sizing:border-box,
+     made Chrome/Safari give it noticeably more width than the other two
+     equal-flex:1 siblings (their padding is 0) — moving the padding/
+     border to a non-flexed inner wrapper avoids that entirely. */
+  .compact-tally{
+    display: none;
+  }
+  .picker.compact .compact-tally{
+    display: flex;
+    flex: 1 1 0;
+    min-width: 0;
+    height: 72px;
+  }
+  .compact-tally-inner{
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+    background: transparent;
+    border: 1.5px solid var(--pink);
+    color: var(--pink);
+    font-family:'Space Grotesk', sans-serif;
+    font-weight:700;
+    font-size: 0.8rem;
+    line-height: 1.25;
+    text-align: center;
+    padding: 6px 10px;
+    border-radius: 16px;
+    box-shadow: 0 0 10px rgba(255,158,205,0.2);
+  }
+
+  /* Icon + label pairing shared by the pick/clear/filter buttons. Icons
+     are visible at all times (including before the picker collapses);
+     compact mode hides the label and enlarges the icon. */
+  .pick-btn-icon, .clear-btn-icon, .filter-btn-icon{
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+  }
+  .pick-btn-icon svg{ width: 18px; height: 18px; transition: width 0.15s ease-out, height 0.15s ease-out; }
+  .clear-btn-icon svg, .filter-btn-icon svg{ width: 15px; height: 15px; transition: width 0.15s ease-out, height 0.15s ease-out; }
+  .picker.compact .pick-btn-label,
+  .picker.compact .clear-btn-label,
+  .picker.compact .filter-btn-label{ display: none; }
+  .picker.compact .pick-btn-icon svg{ width: 28px; height: 28px; }
+  .picker.compact .clear-btn-icon svg,
+  .picker.compact .filter-btn-icon svg{ width: 16px; height: 16px; }
+
+  .pick-btn{
+    width:100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    background: linear-gradient(120deg, var(--pink), var(--lav));
+    color: #241147;
+    border:none;
+    border-radius: 999px;
+    padding: 15px 20px;
+    font-family:'Space Grotesk', sans-serif;
+    font-weight:600;
+    font-size: 1rem;
+    cursor:pointer;
+    transition: transform 0.12s ease, box-shadow 0.2s ease, padding 0.15s ease-out, font-size 0.15s ease-out, width 0.15s ease-out, height 0.15s ease-out, border-radius 0.15s ease-out;
+    box-shadow: 0 0 20px rgba(255,158,205,0.35);
+  }
+  .pick-btn:active{ transform: scale(0.97); }
+  .pick-btn:disabled{ opacity:0.4; cursor:default; box-shadow:none; }
+  .pick-btn:hover:not(:disabled){ box-shadow: 0 0 28px rgba(143,242,255,0.45); }
+  /* Compact: the pick button becomes a fixed-height (72px) icon button
+     that shares equal width with the clear/filter column and the
+     completed-count badge (flex:1, same as those two), so all three
+     slots in the compact row are the same width. */
+  .picker.compact .pick-btn{
+    flex: 1 1 0;
+    min-width: 0;
+    height: 72px;
+    padding: 0;
+    border-radius: 16px;
+  }
+
+  .clear-btn{
+    width:100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: rgba(143,242,255,0.14);
+    color: var(--cyan);
+    border: 1px solid rgba(143,242,255,0.4);
+    border-radius: 999px;
+    padding: 9px 20px;
+    font-family:'Work Sans', sans-serif;
+    font-weight:600;
+    font-size: 0.84rem;
+    cursor:pointer;
+    margin-top: 10px;
+    transition: background 0.15s ease, box-shadow 0.15s ease, padding 0.15s ease-out, font-size 0.15s ease-out, margin-top 0.15s ease-out, width 0.15s ease-out, height 0.15s ease-out, border-radius 0.15s ease-out;
+  }
+  .clear-btn:hover{ background: rgba(143,242,255,0.24); box-shadow: 0 0 14px rgba(143,242,255,0.3); }
+  .clear-btn:disabled{ opacity:0.35; cursor:default; box-shadow:none; }
+  .picker.compact .clear-btn{
+    width: auto;
+    height: 34px;
+    flex: 0 0 auto;
+    padding: 0;
+    border-radius: 10px;
+    margin-top: 0;
+  }
+
+  .filter-btn{
+    width:100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: rgba(201,175,255,0.14);
+    color: var(--lav);
+    border: 1px solid rgba(201,175,255,0.4);
+    border-radius: 999px;
+    padding: 9px 20px;
+    font-family:'Work Sans', sans-serif;
+    font-weight:600;
+    font-size: 0.84rem;
+    cursor:pointer;
+    margin-top: 10px;
+    transition: background 0.15s ease, box-shadow 0.15s ease, padding 0.15s ease-out, font-size 0.15s ease-out, margin-top 0.15s ease-out, width 0.15s ease-out, height 0.15s ease-out, border-radius 0.15s ease-out;
+  }
+  .filter-btn:hover{ background: rgba(201,175,255,0.24); box-shadow: 0 0 14px rgba(201,175,255,0.3); }
+  .filter-btn.active{
+    background: linear-gradient(120deg, var(--lav), var(--pink));
+    color: #241147;
+    border-color: transparent;
+  }
+  .picker.compact .filter-btn{
+    width: auto;
+    height: 34px;
+    flex: 0 0 auto;
+    padding: 0;
+    border-radius: 10px;
+    margin-top: 0;
+  }
+
+  .pick-result{
+    margin-top: 18px;
+    text-align:center;
+    padding: 18px 10px 6px;
+    border-top: 1px dashed var(--line);
+    transition: margin-top 0.15s ease-out, padding 0.15s ease-out;
+  }
+  .pick-result .label{
+    display:block;
+    font-size: 0.78rem;
+    color: var(--ink-dim);
+    margin-bottom: 8px;
+  }
+  .pick-result .parent{
+    display:block;
+    font-size: 0.8rem;
+    color: var(--cyan);
+    margin-bottom: 4px;
+    min-height: 1.1em;
+  }
+  .pick-result .name{
+    font-family:'Space Grotesk', sans-serif;
+    font-weight:600;
+    font-size: 1.5rem;
+    color: var(--yellow);
+    text-shadow: 0 0 16px rgba(255,233,168,0.5);
+    display:inline-block;
+    min-height: 1.3em;
+    transition: font-size 0.15s ease-out;
+  }
+  .picker.compact .pick-result{
+    margin-top: 10px;
+    padding: 10px 10px 2px;
+  }
+  .picker.compact .pick-result .name{
+    font-size: 1.15rem;
+  }
+  .pick-empty{
+    margin-top: 14px;
+    text-align:center;
+    color: var(--ink-dim);
+    font-size: 0.88rem;
+  }
+
+  /* List */
+  .list{
+    display:flex;
+    flex-direction:column;
+    gap: 12px;
+    margin-bottom: 22px;
+  }
+
+  .item{
+    background: linear-gradient(155deg, var(--card), var(--card-2));
+    border-radius: var(--radius);
+    padding: 13px 14px;
+    display:flex;
+    align-items:center;
+    gap: 12px;
+    border: 1px solid rgba(255,255,255,0.06);
+    box-shadow: 0 4px 14px rgba(0,0,0,0.3);
+  }
+
+  .check{
+    flex: 0 0 auto;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 2px solid var(--mint);
+    background: transparent;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:0;
+  }
+  .item.done .check, .step.done .check{
+    background: var(--mint);
+    border-color: var(--mint);
+    box-shadow: 0 0 12px rgba(168,255,217,0.6);
+  }
+  .check svg{
+    width:12px; height:12px;
+    opacity:0;
+    transition: opacity 0.15s ease;
+  }
+  .item.done .check svg, .step.done .check svg{ opacity:1; }
+
+  .text{
+    flex:1;
+    font-size: 0.98rem;
+    line-height:1.35;
+    word-break: break-word;
+  }
+  .item.done .text, .step.done .text{
+    text-decoration: line-through;
+    color: var(--ink-dim);
+  }
+
+  .del{
+    flex: 0 0 auto;
+    background:none;
+    border:none;
+    color: var(--ink-dim);
+    font-size: 1.1rem;
+    line-height:1;
+    cursor:pointer;
+    padding: 4px 6px;
+  }
+  .del:hover{ color: var(--pink); }
+
+  .text.editable{
+    cursor: pointer;
+    border-bottom: 1px dashed transparent;
+    transition: border-color 0.15s ease;
+  }
+  .text.editable:hover{ border-color: var(--lav); }
+
+  .edit-input{
+    flex:1;
+    background: rgba(0,0,0,0.25);
+    border: 1px solid var(--lav);
+    border-radius: 8px;
+    color: var(--ink);
+    font-family:'Work Sans', sans-serif;
+    font-size: 0.95rem;
+    padding: 6px 9px;
+    outline:none;
+    min-width: 0;
+  }
+
+  .step-del{
+    font-size: 0.95rem;
+    opacity: 0.7;
+  }
+
+  .add-step-row{
+    display:flex;
+    gap: 6px;
+    margin-top: 2px;
+  }
+  .add-step-row input{
+    flex:1;
+    background: rgba(0,0,0,0.18);
+    border: 1px dashed var(--line);
+    border-radius: 8px;
+    color: var(--ink);
+    font-family:'Work Sans', sans-serif;
+    font-size: 0.86rem;
+    padding: 7px 10px;
+    outline:none;
+  }
+  .add-step-row input:focus{ border-color: var(--cyan); }
+  .add-step-row input::placeholder{ color: var(--ink-dim); }
+  .add-step-row button{
+    flex: 0 0 auto;
+    width: 32px;
+    background: rgba(143,242,255,0.14);
+    border: 1px solid rgba(143,242,255,0.3);
+    color: var(--cyan);
+    border-radius: 8px;
+    font-size: 1.1rem;
+    line-height:1;
+    cursor:pointer;
+  }
+  .add-step-row button:hover{ background: rgba(143,242,255,0.24); }
+
+  /* Multi-step card */
+  .multi{
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .multi-head{
+    display:flex;
+    align-items:center;
+    gap: 10px;
+  }
+  .multi-head .text{
+    font-family:'Space Grotesk', sans-serif;
+    font-weight:600;
+    font-size: 1.02rem;
+  }
+  .multi-progress{
+    font-size: 0.76rem;
+    color: var(--lav);
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+  .steps{
+    display:flex;
+    flex-direction:column;
+    gap: 7px;
+    padding-left: 6px;
+    border-left: 2px solid rgba(201,175,255,0.25);
+    margin-left: 6px;
+  }
+  .step{
+    display:flex;
+    align-items:center;
+    gap: 10px;
+    padding: 6px 8px;
+    border-radius: 8px;
+  }
+  .step .check{
+    width: 20px; height: 20px;
+    border-color: var(--cyan);
+  }
+  .step .text{ font-size: 0.9rem; }
+  .step.next{
+    background: rgba(255,233,168,0.08);
+    box-shadow: 0 0 0 1px rgba(255,233,168,0.25) inset;
+  }
+  .step.next .check{
+    border-color: var(--yellow);
+    box-shadow: 0 0 10px rgba(255,233,168,0.5);
+  }
+
+  .empty-state{
+    color: var(--ink-dim);
+    text-align:center;
+    padding: 30px 10px;
+    font-size: 0.92rem;
+  }
+
+  /* Add-chore form (used inside #addSheet) */
+  .add-form{
+    display:flex;
+    gap: 8px;
+    background: rgba(255,255,255,0.05);
+    padding: 8px;
+    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+  .add-form input{
+    flex:1;
+    background:transparent;
+    border:none;
+    outline:none;
+    color: var(--ink);
+    font-family:'Work Sans', sans-serif;
+    font-size: 0.95rem;
+    padding: 8px 10px;
+  }
+  .add-form input::placeholder{ color: var(--ink-dim); }
+  .add-form button{
+    background: linear-gradient(120deg, var(--cyan), var(--mint));
+    color: #142a2a;
+    border:none;
+    border-radius: 999px;
+    padding: 9px 18px;
+    font-weight:600;
+    font-size: 0.92rem;
+    cursor:pointer;
+  }
+
+  /* Floating "add" button, pinned to the bottom-right of the screen.
+     Positioned inside .fab-layer, a fixed full-height layer that's
+     centered to the same max-width as .app, so it lines up with the
+     app column instead of the raw browser edge on wide screens. */
+  .fab-layer{
+    position: fixed;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100%;
+    max-width: 440px;
+    height: 100%;
+    pointer-events: none;
+    z-index: 60;
+  }
+  .fab-layer > *{ pointer-events: auto; }
+
+  .fab{
+    position: absolute;
+    right: 18px;
+    bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+    width: 58px;
+    height: 58px;
+    border-radius: 50%;
+    border: none;
+    background: linear-gradient(120deg, var(--pink), var(--lav));
+    color: #241147;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 12px 28px rgba(255,158,205,0.4), 0 0 0 1px rgba(255,255,255,0.08);
+    transition: transform 0.15s ease, box-shadow 0.2s ease;
+  }
+  .fab:hover{ box-shadow: 0 14px 32px rgba(143,242,255,0.45), 0 0 0 1px rgba(255,255,255,0.08); }
+  .fab:active{ transform: scale(0.94); }
+  .fab svg{ width: 24px; height: 24px; }
+
+  /* Secondary "multi-step" button sits just above the main FAB, always
+     visible (no menu/extra tap needed) — smaller and in the app's
+     lavender accent so it reads as the secondary action, with the main
+     pink/lavender FAB as the default (single chore). */
+  .fab-secondary{
+    position: absolute;
+    right: 24px;
+    bottom: calc(92px + env(safe-area-inset-bottom, 0px));
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    border: 1px solid rgba(201,175,255,0.4);
+    background: rgba(201,175,255,0.16);
+    backdrop-filter: blur(6px);
+    color: var(--lav);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 10px 24px rgba(0,0,0,0.4);
+    transition: transform 0.15s ease, background 0.15s ease;
+  }
+  .fab-secondary:hover{ background: rgba(201,175,255,0.26); }
+  .fab-secondary:active{ transform: scale(0.94); }
+  .fab-secondary svg{ width: 18px; height: 18px; }
+
+  /* Bottom sheets for adding a chore. Backdrop dims the page; the sheet
+     itself slides up from the bottom. Both are shown/hidden via the
+     `hidden` attribute plus a `.show` class (added a frame later) so the
+     transform/opacity transition actually plays each time. */
+  .sheet-backdrop{
+    position: fixed;
+    inset: 0;
+    background: rgba(8,4,18,0.55);
+    z-index: 70;
+    opacity: 0;
+    transition: opacity 0.2s ease-out;
+  }
+  .sheet-backdrop.show{ opacity: 1; }
+
+  .sheet{
+    position: fixed;
+    left: 50%;
+    bottom: 0;
+    transform: translateX(-50%) translateY(16px);
+    width: 100%;
+    max-width: 440px;
+    z-index: 80;
+    background: linear-gradient(165deg, var(--card), var(--card-2));
+    border-radius: 20px 20px 0 0;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-bottom: none;
+    padding: 10px 20px calc(24px + env(safe-area-inset-bottom, 0px));
+    box-shadow: 0 -14px 40px rgba(0,0,0,0.5);
+    opacity: 0;
+    transition: opacity 0.2s ease-out, transform 0.2s ease-out;
+  }
+  .sheet.show{ opacity: 1; transform: translateX(-50%) translateY(0); }
+  .sheet-handle{
+    width: 40px;
+    height: 4px;
+    background: rgba(255,255,255,0.18);
+    border-radius: 999px;
+    margin: 6px auto 14px;
+  }
+  .sheet h3{
+    font-family:'Space Grotesk', sans-serif;
+    font-weight: 600;
+    font-size: 1.08rem;
+    margin: 0 0 14px;
+  }
+
+  #addSheet{ display: flex; flex-direction: column; }
+
+  #multiSheet{ display: flex; flex-direction: column; gap: 10px; }
+  #multiSheet input, #multiSheet textarea{
+    width:100%;
+    background: rgba(0,0,0,0.2);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    color: var(--ink);
+    font-family:'Work Sans', sans-serif;
+    font-size: 0.92rem;
+    padding: 9px 11px;
+    outline:none;
+  }
+  #multiSheet textarea{ min-height: 96px; resize: vertical; }
+  #multiSheet .hint{ font-size: 0.76rem; color: var(--ink-dim); margin: -4px 0 0; }
+  #multiSheet .row{ display:flex; gap: 8px; margin-top: 4px; }
+  #multiSheet .row button{
+    flex:1;
+    border:none;
+    border-radius: 999px;
+    padding: 10px 14px;
+    font-weight:600;
+    font-size: 0.9rem;
+    cursor:pointer;
+  }
+  #multiSheet .save{ background: linear-gradient(120deg, var(--pink), var(--lav)); color:#241147; }
+  #multiSheet .cancel{ background: rgba(255,255,255,0.08); color: var(--ink); }
+
+  .status-line{
+    text-align:center;
+    color: rgba(243,236,255,0.35);
+    font-size: 0.78rem;
+    margin-top: 18px;
+  }
+
+  .version-tag{
+    text-align:center;
+    color: rgba(243,236,255,0.22);
+    font-size: 0.7rem;
+    margin: 4px 0 0;
+  }
+
+  .credit-line{
+    text-align:center;
+    color: rgba(243,236,255,0.22);
+    font-size: 0.7rem;
+    margin: 2px 0 0;
+    padding: 0 20px;
+  }
+
+  /* Separate footer note, just below the credit line — a little extra
+     top margin (10px vs the credit line's 2px) keeps it read as its own
+     sentence rather than a continuation of the Simone Giertz credit. */
+  .support-line{
+    text-align:center;
+    color: rgba(243,236,255,0.22);
+    font-size: 0.7rem;
+    margin: 10px 0 0;
+    padding: 0 20px;
+  }
+
+  .credit-link{
+    color: var(--pink);
+    text-decoration: underline;
+    text-decoration-color: rgba(255,158,205,0.45);
+    text-underline-offset: 2px;
+  }
+  .credit-link:hover, .credit-link:focus-visible{
+    color: var(--ink);
+    text-decoration-color: currentColor;
+  }
+
+  /* Splash */
+  .splash{
+    position: fixed;
+    inset: 0;
+    background: #f1d1c8;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding: 24px;
+    z-index: 100;
+    animation: splashIn 0.35s ease;
+  }
+  .splash[hidden]{ display:none; }
+  @keyframes splashIn{
+    from{ opacity:0; }
+    to{ opacity:1; }
+  }
+  .splash-inner{
+    text-align:center;
+    max-width: 340px;
+  }
+  .splash-inner img{
+    width: 100%;
+    max-width: 280px;
+    border-radius: 18px;
+    box-shadow: 0 18px 40px rgba(60,30,20,0.18);
+    margin-bottom: 22px;
+  }
+  .splash-inner h2{
+    font-family:'Space Grotesk', sans-serif;
+    font-weight:700;
+    font-size: 1.8rem;
+    color: #3a2018;
+    margin: 0 0 6px;
+  }
+  .splash-inner p{
+    font-family:'Work Sans', sans-serif;
+    color: #6b4536;
+    margin: 0 0 22px;
+    font-size: 0.95rem;
+  }
+  .splash-inner button{
+    background: #3a2018;
+    color: #f1d1c8;
+    border: none;
+    border-radius: 999px;
+    padding: 12px 26px;
+    font-family:'Space Grotesk', sans-serif;
+    font-weight:600;
+    font-size: 0.92rem;
+    cursor: pointer;
+  }
+  .splash-inner button:hover{ background: #2a1610; }
+
+  @media (prefers-reduced-motion: reduce){
+    .pick-btn{ transition:none; }
+    .picker, .pick-btn, .clear-btn, .filter-btn, .pick-result, .pick-result .name{ transition:none; }
+    .fab, .fab svg, .fab-secondary, .sheet-backdrop, .sheet{ transition:none; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="splash" id="splash" hidden>
+    <div class="splash-inner">
+      <img id="splashGif" alt="A little cartoon cat celebrating" />
+      <h2>Well done!</h2>
+      <p>Every chore is ticked off.</p>
+      <button type="button" id="splashClose">Back to list</button>
+    </div>
+  </div>
+
+  <header id="appHeader">
+    <div class="header-row">
+      <div>
+        <h1>GSD MCH</h1>
+        <p class="subtitle">Chore App</p>
+      </div>
+      <div class="tally-badge" id="tally">&hellip;</div>
+    </div>
+  </header>
+
+  <div class="picker" id="picker">
+    <div class="picker-actions">
+      <button class="pick-btn" id="pickBtn" aria-label="Pick something for me">
+        <span class="pick-btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="4" stroke="currentColor" stroke-width="1.6"/><circle cx="8" cy="8" r="1.4" fill="currentColor"/><circle cx="16" cy="8" r="1.4" fill="currentColor"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/><circle cx="8" cy="16" r="1.4" fill="currentColor"/><circle cx="16" cy="16" r="1.4" fill="currentColor"/></svg></span>
+        <span class="pick-btn-label">Pick something for me</span>
+      </button>
+      <div class="secondary-actions">
+        <button class="clear-btn" id="clearBtn" aria-label="Clear completed">
+          <span class="clear-btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m-9 0 1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M10 11v6M14 11v6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></span>
+          <span class="clear-btn-label">Clear completed</span>
+        </button>
+        <button class="filter-btn" id="filterBtn" aria-label="Hide completed">
+          <span class="filter-btn-icon" id="filterBtnIcon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M3 3l18 18M10.6 10.6a3 3 0 0 0 4.24 4.24M6.3 6.3C4 7.9 2.5 10 2 12c1.5 4 5.5 7 10 7 1.6 0 3.1-.35 4.45-1M9.9 4.24A10.9 10.9 0 0 1 12 4c4.5 0 8.5 3 10 8a12.3 12.3 0 0 1-2.16 3.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+          <span class="filter-btn-label">Hide completed</span>
+        </button>
+      </div>
+      <span class="compact-tally" id="compactTally"><span class="compact-tally-inner" id="compactTallyInner">&hellip;</span></span>
+    </div>
+    <div class="pick-result" id="pickResult" hidden>
+      <span class="label">Do this next</span>
+      <span class="parent" id="pickParent" hidden></span>
+      <span class="name" id="pickName"></span>
+    </div>
+    <div class="pick-empty" id="pickEmpty" hidden>Nothing left to pick &mdash; add a chore or clear some ticks.</div>
+  </div>
+
+  <div class="list" id="list"></div>
+
+  <p class="status-line" id="statusLine"></p>
+
+  <p class="version-tag">v0.34</p>
+  <p class="credit-line">Inspired by a video by Simone Giertz,<br>please check out <a class="credit-link" href="https://www.youtube.com/@simonegiertz" target="_blank" rel="noopener noreferrer">her channel</a></p>
+  <p class="support-line">This app is free and ad-free, but you can<br><a class="credit-link" href="https://ko-fi.com/getstuffdone" target="_blank" rel="noopener noreferrer">buy me a coffee here</a></p>
+</div>
+
+<!-- Floating add button, pinned to the bottom-right of the screen and
+     unaffected by scrolling. Tapping it directly opens the "add a single
+     chore" sheet (the default action); the smaller secondary button just
+     above it directly opens the "add a multi-step chore" sheet. Neither
+     needs an extra menu tap. -->
+<div class="fab-layer">
+  <button type="button" class="fab-secondary" id="fabMultiBtn" aria-label="Add a multi-step chore">
+    <svg viewBox="0 0 24 24" fill="none"><path d="M3 6.5h9M3 12h9M3 17.5h5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M18 8v10M13 13h10" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+  </button>
+  <button type="button" class="fab" id="fabBtn" aria-label="Add a chore">
+    <svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+  </button>
+</div>
+
+<div class="sheet-backdrop" id="sheetBackdrop" hidden></div>
+
+<div class="sheet" id="addSheet" hidden>
+  <div class="sheet-handle"></div>
+  <h3>Add a chore</h3>
+  <div class="add-form" id="addForm">
+    <input id="addInput" type="text" placeholder="Add a chore&hellip;" maxlength="80" autocomplete="off">
+    <button type="button" id="addBtn">Add</button>
+  </div>
+</div>
+
+<div class="sheet" id="multiSheet" hidden>
+  <div class="sheet-handle"></div>
+  <h3>Add a multi-step chore</h3>
+  <input id="multiTitle" type="text" placeholder="Chore name (e.g. Deep clean kitchen)" maxlength="80">
+  <textarea id="multiSteps" placeholder="One step per line, in order&#10;Wipe counters&#10;Do the dishes&#10;Mop floor&#10;Take out trash"></textarea>
+  <p class="hint">Only the first unfinished step will ever come up in the random pick.</p>
+  <div class="row">
+    <button type="button" class="cancel" id="multiCancel">Cancel</button>
+    <button type="button" class="save" id="multiSave">Add chore</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  const STORAGE_KEY = 'chores:list';
+  const list = document.getElementById('list');
+  const tally = document.getElementById('tally');
+  const compactTally = document.getElementById('compactTally');
+  const compactTallyInner = document.getElementById('compactTallyInner');
+  const addInput = document.getElementById('addInput');
+  const addBtn = document.getElementById('addBtn');
+  const pickBtn = document.getElementById('pickBtn');
+  const clearBtn = document.getElementById('clearBtn');
+  const filterBtn = document.getElementById('filterBtn');
+  const filterBtnLabel = filterBtn.querySelector('.filter-btn-label');
+  const filterBtnIcon = document.getElementById('filterBtnIcon');
+  // Two faces of the same eye icon: the crossed-out version (shown while
+  // completed chores are still visible, i.e. "click to hide") and a plain
+  // open eye with the diagonal line removed (shown once they're hidden,
+  // i.e. "click to show them again") — same viewBox/stroke style as the
+  // rest of the app's outline icons so the swap reads as one icon
+  // changing state, not two unrelated glyphs.
+  const EYE_SLASH_ICON = '<svg viewBox="0 0 24 24" fill="none"><path d="M3 3l18 18M10.6 10.6a3 3 0 0 0 4.24 4.24M6.3 6.3C4 7.9 2.5 10 2 12c1.5 4 5.5 7 10 7 1.6 0 3.1-.35 4.45-1M9.9 4.24A10.9 10.9 0 0 1 12 4c4.5 0 8.5 3 10 8a12.3 12.3 0 0 1-2.16 3.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  const EYE_ICON = '<svg viewBox="0 0 24 24" fill="none"><path d="M2 12S6 4.5 12 4.5 22 12 22 12 18 19.5 12 19.5 2 12 2 12Z" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.6"/></svg>';
+  const pickResult = document.getElementById('pickResult');
+  const pickParent = document.getElementById('pickParent');
+  const pickName = document.getElementById('pickName');
+  const pickEmpty = document.getElementById('pickEmpty');
+  const statusLine = document.getElementById('statusLine');
+  const splash = document.getElementById('splash');
+  const splashGif = document.getElementById('splashGif');
+  const splashClose = document.getElementById('splashClose');
+  const appHeader = document.getElementById('appHeader');
+  const picker = document.getElementById('picker');
+  const CELEBRATE_GIF_BASE64 = "REPLACE_WITH_ACTUAL_GIF_BASE64"; // NOTE: gif data stripped for project knowledge size limits. Live working version: https://claude.ai/artifact/Uvp1PjfuW7R1N3CdqPa844
+  splashGif.src = "data:image/gif;base64," + CELEBRATE_GIF_BASE64;
+
+  splashClose.addEventListener('click', () => {
+    splash.hidden = true;
+  });
+  const multiTitle = document.getElementById('multiTitle');
+  const multiSteps = document.getElementById('multiSteps');
+  const multiSave = document.getElementById('multiSave');
+  const multiCancel = document.getElementById('multiCancel');
+  const fabBtn = document.getElementById('fabBtn');
+  const fabMultiBtn = document.getElementById('fabMultiBtn');
+  const sheetBackdrop = document.getElementById('sheetBackdrop');
+  const addSheet = document.getElementById('addSheet');
+  const multiSheet = document.getElementById('multiSheet');
+
+  let chores = [];
+  let saveTimer = null;
+  let previousRemaining = null;
+  let hideCompleted = false;
+
+  // Floating add buttons + the two bottom sheets. Tapping the main FAB
+  // opens the single-chore sheet directly (the default action); tapping
+  // the smaller secondary button above it opens the multi-step sheet
+  // directly. No intermediate menu/tap needed for either.
+  // Sheets are shown/hidden via the `hidden` attribute (so they're fully
+  // removed from layout/accessibility when closed) plus a `.show` class
+  // added a frame later, so the opacity/transform transition actually plays.
+  let openSheetEl = null;
+  const SHEET_TRANSITION_MS = 200;
+
+  function openSheet(sheetEl, focusEl){
+    openSheetEl = sheetEl;
+    sheetBackdrop.hidden = false;
+    sheetEl.hidden = false;
+    window.requestAnimationFrame(() => {
+      sheetBackdrop.classList.add('show');
+      sheetEl.classList.add('show');
+    });
+    if(focusEl){
+      window.setTimeout(() => focusEl.focus(), SHEET_TRANSITION_MS + 20);
+    }
+  }
+  function closeSheet(){
+    if(!openSheetEl) return;
+    const el = openSheetEl;
+    openSheetEl = null;
+    el.classList.remove('show');
+    sheetBackdrop.classList.remove('show');
+    window.setTimeout(() => {
+      el.hidden = true;
+      sheetBackdrop.hidden = true;
+    }, SHEET_TRANSITION_MS);
+  }
+
+  fabBtn.addEventListener('click', () => openSheet(addSheet, addInput));
+  fabMultiBtn.addEventListener('click', () => openSheet(multiSheet, multiTitle));
+  sheetBackdrop.addEventListener('click', () => closeSheet());
+  document.addEventListener('keydown', (e) => {
+    if(e.key === 'Escape' && openSheetEl) closeSheet();
+  });
+
+  // Sticky picker: only the picker card (Pick/Clear/Hide) is sticky and
+  // pinned to the top of the screen. The header (title/subtitle/tally)
+  // is plain normal-flow content and scrolls away natively — no JS or
+  // animation touches it, so it can never fight the browser's own scroll
+  // physics or cause a scroll-position jump.
+  //
+  // Once the header has been fully scrolled past (its bottom edge is at
+  // or above the top of the viewport), `.compact` is added to the picker,
+  // which shrinks its padding/type size a little via short CSS
+  // transitions to reclaim screen space.
+  //
+  // This uses two different thresholds rather than one, with a dead zone
+  // between them, instead of a single "headerBottom <= 0" trigger. With
+  // just one threshold, scrolling slowly means the header's edge can
+  // hover right at that exact pixel for many frames in a row, and any
+  // tiny jitter there (a touch micro-movement, momentum/rubber-band
+  // bounce, even sub-pixel rounding) crosses back and forth over it
+  // repeatedly — each crossing restarts the compact/maximised CSS
+  // transitions and layout (label hide/show, icon resize, row/column
+  // swap) mid-flight, which is what caused the visible flicker/"fighting"
+  // during a slow scroll. Requiring a deliberate scroll of COMPACT_ENTER
+  // px past the header before collapsing, and COMPACT_EXIT px back before
+  // expanding again, means small back-and-forth jitter within that gap
+  // never re-triggers the toggle — only a real, sustained scroll past one
+  // edge of the dead zone does.
+  //
+  // The dead zone alone isn't quite enough on its own, though: toggling
+  // `.compact` changes the picker's own height by a lot (it switches from
+  // three stacked buttons to one row), and because it's a `sticky`
+  // element pinned at the very top of the screen, that size change makes
+  // Chromium nudge the real scroll position by a single, fairly large,
+  // one-off amount right as the toggle happens (confirmed directly: with
+  // zero scroll input at all, just flipping the class causes scrollY to
+  // jump on its own). That nudge tends to land back on the *opposite*
+  // side of the dead zone from the edge that was just crossed — i.e. the
+  // toggle's own side effect can immediately reverse the very toggle that
+  // caused it. A wider dead zone can't fully rule that out (the nudge's
+  // size isn't fixed), so on top of it, COMPACT_TOGGLE_COOLDOWN_MS blocks
+  // the *opposite* transition for a short window right after each toggle
+  // — long enough for that one settle to finish, not long enough to feel
+  // unresponsive to an actual scroll reversal by the user.
+  const COMPACT_ENTER = -24; // px the header's bottom must clear before collapsing
+  const COMPACT_EXIT = 8;    // px the header's bottom must clear before re-expanding
+  const COMPACT_TOGGLE_COOLDOWN_MS = 250;
+  let compactTicking = false;
+  let lastCompactToggleAt = 0;
+  function updateCompactState(){
+    const headerBottom = appHeader.getBoundingClientRect().bottom;
+    const isCompact = picker.classList.contains('compact');
+    const sinceLastToggle = Date.now() - lastCompactToggleAt;
+    if(sinceLastToggle >= COMPACT_TOGGLE_COOLDOWN_MS){
+      if(isCompact && headerBottom >= COMPACT_EXIT){
+        picker.classList.remove('compact');
+        lastCompactToggleAt = Date.now();
+      } else if(!isCompact && headerBottom <= COMPACT_ENTER){
+        picker.classList.add('compact');
+        lastCompactToggleAt = Date.now();
+      }
+    }
+    compactTicking = false;
+  }
+  window.addEventListener('scroll', () => {
+    if(!compactTicking){
+      compactTicking = true;
+      window.requestAnimationFrame(updateCompactState);
+    }
+  }, { passive: true });
+  updateCompactState();
+
+  function uid(){
+    return Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+  }
+
+  const defaultChores = [
+    { id: uid(), text: 'Take out the recycling', done: false },
+    { id: uid(), text: 'Water the plants', done: false },
+    {
+      id: uid(),
+      text: 'Deep clean kitchen',
+      steps: [
+        { id: uid(), text: 'Wipe counters', done: false },
+        { id: uid(), text: 'Do the dishes', done: false },
+        { id: uid(), text: 'Mop the floor', done: false },
+        { id: uid(), text: 'Take out the trash', done: false }
+      ]
+    },
+    { id: uid(), text: 'Vacuum the living room', done: false }
+  ];
+
+  function load(){
+    try{
+      const raw = localStorage.getItem(STORAGE_KEY);
+      chores = raw ? JSON.parse(raw) : defaultChores;
+    }catch(e){
+      chores = defaultChores;
+    }
+    render();
+  }
+
+  function persist(){
+    try{
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(chores));
+      statusLine.textContent = '';
+    }catch(e){
+      statusLine.textContent = 'Could not save — changes may not persist.';
+    }
+  }
+
+  function scheduleSave(){
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(persist, 250);
+  }
+
+  function isChoreComplete(chore){
+    return chore.steps ? chore.steps.every(s => s.done) : chore.done;
+  }
+
+  function checkSvg(){
+    return '<svg viewBox="0 0 16 16" fill="none"><path d="M3 8.5L6.2 11.5L13 4.5" stroke="#180b2e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  }
+
+  function makeEditable(span, currentValue, onSave){
+    span.classList.add('editable');
+    span.title = 'Tap to edit';
+    span.addEventListener('click', () => startEdit());
+
+    function startEdit(){
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'edit-input';
+      input.value = currentValue;
+      input.maxLength = 100;
+      span.replaceWith(input);
+      input.focus();
+      input.select();
+
+      let finished = false;
+      function finish(shouldSave){
+        if(finished) return;
+        finished = true;
+        const val = input.value.trim();
+        if(shouldSave && val && val !== currentValue){
+          onSave(val);
+        } else {
+          render();
+        }
+      }
+      input.addEventListener('blur', () => finish(true));
+      input.addEventListener('keydown', (e) => {
+        if(e.key === 'Enter'){ e.preventDefault(); finish(true); }
+        if(e.key === 'Escape'){ e.preventDefault(); finish(false); }
+      });
+    }
+  }
+
+  function render(){
+    list.innerHTML = '';
+    const visibleChores = hideCompleted ? chores.filter(c => !isChoreComplete(c)) : chores;
+
+    if(chores.length === 0){
+      const empty = document.createElement('div');
+      empty.className = 'empty-state';
+      empty.textContent = 'No chores yet. Add your first one below.';
+      list.appendChild(empty);
+    } else if(visibleChores.length === 0){
+      const empty = document.createElement('div');
+      empty.className = 'empty-state';
+      empty.textContent = 'Everything visible is done — nice work.';
+      list.appendChild(empty);
+    } else {
+      visibleChores.forEach(chore => {
+        if(chore.steps){
+          list.appendChild(renderMultiCard(chore));
+        } else {
+          list.appendChild(renderSimpleRow(chore));
+        }
+      });
+    }
+
+    let totalItems = 0;
+    let remaining = 0;
+    chores.forEach(chore => {
+      if(chore.steps){
+        totalItems += chore.steps.length;
+        remaining += chore.steps.filter(s => !s.done).length;
+      } else {
+        totalItems += 1;
+        if(!chore.done) remaining += 1;
+      }
+    });
+
+    let tallyText;
+    if(totalItems === 0){
+      tallyText = 'Nothing on the list';
+    } else if(remaining === 0){
+      tallyText = 'All done — nice work';
+    } else {
+      tallyText = remaining + ' of ' + totalItems + ' left';
+    }
+    tally.textContent = tallyText;
+    // Compact top bar shows the same count, since the header's own tally
+    // badge has scrolled out of view by the time .compact kicks in.
+    // (Text lives on the inner wrapper — see the .compact-tally CSS
+    // comment for why the outer flex item stays padding-free.)
+    compactTallyInner.textContent = tallyText;
+
+    pickResult.hidden = true;
+    pickEmpty.hidden = remaining > 0;
+    pickBtn.disabled = remaining === 0;
+    clearBtn.disabled = !chores.some(c => isChoreComplete(c));
+    const filterText = hideCompleted ? 'Show all' : 'Hide completed';
+    filterBtnLabel.textContent = filterText;
+    filterBtn.setAttribute('aria-label', filterText);
+    filterBtn.classList.toggle('active', hideCompleted);
+    filterBtnIcon.innerHTML = hideCompleted ? EYE_ICON : EYE_SLASH_ICON;
+
+    if(previousRemaining !== null && previousRemaining > 0 && remaining === 0 && chores.length > 0){
+      splash.hidden = false;
+    }
+    previousRemaining = remaining;
+  }
+
+  function renderSimpleRow(chore){
+    const row = document.createElement('div');
+    row.className = 'item' + (chore.done ? ' done' : '');
+
+    const check = document.createElement('button');
+    check.className = 'check';
+    check.setAttribute('aria-label', chore.done ? 'Mark as not done' : 'Mark as done');
+    check.innerHTML = checkSvg();
+    check.addEventListener('click', () => toggle(chore.id));
+
+    const text = document.createElement('span');
+    text.className = 'text';
+    text.textContent = chore.text;
+    makeEditable(text, chore.text, (val) => renameChore(chore.id, val));
+
+    const del = document.createElement('button');
+    del.className = 'del';
+    del.setAttribute('aria-label', 'Delete chore');
+    del.textContent = '×';
+    del.addEventListener('click', () => remove(chore.id));
+
+    row.appendChild(check);
+    row.appendChild(text);
+    row.appendChild(del);
+    return row;
+  }
+
+  function renderMultiCard(chore){
+    const card = document.createElement('div');
+    card.className = 'item multi';
+
+    const head = document.createElement('div');
+    head.className = 'multi-head';
+
+    const title = document.createElement('span');
+    title.className = 'text';
+    title.textContent = chore.text;
+    makeEditable(title, chore.text, (val) => renameChore(chore.id, val));
+
+    const doneCount = chore.steps.filter(s => s.done).length;
+    const progress = document.createElement('span');
+    progress.className = 'multi-progress';
+    progress.textContent = doneCount + '/' + chore.steps.length;
+
+    const del = document.createElement('button');
+    del.className = 'del';
+    del.setAttribute('aria-label', 'Delete chore');
+    del.textContent = '×';
+    del.addEventListener('click', () => remove(chore.id));
+
+    head.appendChild(title);
+    head.appendChild(progress);
+    head.appendChild(del);
+    card.appendChild(head);
+
+    const nextStep = chore.steps.find(s => !s.done);
+    const stepsWrap = document.createElement('div');
+    stepsWrap.className = 'steps';
+
+    // "Hide completed" is meant to hide every completed item, not just
+    // whole chores — a multi-step chore only counts as "complete" once
+    // ALL its steps are done (see isChoreComplete), so a card can still
+    // be showing here with some steps done and some not. Without this,
+    // those already-done steps stayed listed (struck through) no matter
+    // what the toggle said, which is the bug being fixed here: at least
+    // one step is guaranteed to remain, since a fully-done chore would
+    // already have been filtered out of visibleChores entirely before
+    // this function is ever called.
+    const visibleSteps = hideCompleted ? chore.steps.filter(s => !s.done) : chore.steps;
+
+    visibleSteps.forEach(step => {
+      const row = document.createElement('div');
+      row.className = 'step' + (step.done ? ' done' : '') + (nextStep && step.id === nextStep.id ? ' next' : '');
+
+      const check = document.createElement('button');
+      check.className = 'check';
+      check.setAttribute('aria-label', step.done ? 'Mark step as not done' : 'Mark step as done');
+      check.innerHTML = checkSvg();
+      check.addEventListener('click', () => toggle(chore.id, step.id));
+
+      const text = document.createElement('span');
+      text.className = 'text';
+      text.textContent = step.text;
+      makeEditable(text, step.text, (val) => renameStep(chore.id, step.id, val));
+
+      const stepDel = document.createElement('button');
+      stepDel.className = 'del step-del';
+      stepDel.setAttribute('aria-label', 'Delete step');
+      stepDel.textContent = '×';
+      stepDel.addEventListener('click', () => removeStep(chore.id, step.id));
+
+      row.appendChild(check);
+      row.appendChild(text);
+      row.appendChild(stepDel);
+      stepsWrap.appendChild(row);
+    });
+
+    const addStepRow = document.createElement('div');
+    addStepRow.className = 'add-step-row';
+    const addStepInput = document.createElement('input');
+    addStepInput.type = 'text';
+    addStepInput.placeholder = 'Add a step…';
+    addStepInput.maxLength = 100;
+    const addStepBtn = document.createElement('button');
+    addStepBtn.type = 'button';
+    addStepBtn.textContent = '+';
+    addStepBtn.setAttribute('aria-label', 'Add step');
+
+    function submitStep(){
+      const val = addStepInput.value.trim();
+      if(!val) return;
+      addStep(chore.id, val);
+    }
+    addStepBtn.addEventListener('click', submitStep);
+    addStepInput.addEventListener('keydown', (e) => {
+      if(e.key === 'Enter'){ e.preventDefault(); submitStep(); }
+    });
+
+    addStepRow.appendChild(addStepInput);
+    addStepRow.appendChild(addStepBtn);
+    stepsWrap.appendChild(addStepRow);
+
+    card.appendChild(stepsWrap);
+    return card;
+  }
+
+  function toggle(choreId, stepId){
+    chores = chores.map(chore => {
+      if(chore.id !== choreId) return chore;
+      if(stepId){
+        return {
+          ...chore,
+          steps: chore.steps.map(s => s.id === stepId ? {...s, done: !s.done} : s)
+        };
+      }
+      return {...chore, done: !chore.done};
+    });
+    render();
+    scheduleSave();
+  }
+
+  function remove(id){
+    chores = chores.filter(c => c.id !== id);
+    render();
+    scheduleSave();
+  }
+
+  function renameChore(choreId, newText){
+    chores = chores.map(c => c.id === choreId ? {...c, text: newText} : c);
+    render();
+    scheduleSave();
+  }
+
+  function renameStep(choreId, stepId, newText){
+    chores = chores.map(c => {
+      if(c.id !== choreId) return c;
+      return {...c, steps: c.steps.map(s => s.id === stepId ? {...s, text: newText} : s)};
+    });
+    render();
+    scheduleSave();
+  }
+
+  function addStep(choreId, text){
+    chores = chores.map(c => {
+      if(c.id !== choreId) return c;
+      return {...c, steps: [...c.steps, { id: uid(), text, done: false }]};
+    });
+    render();
+    scheduleSave();
+  }
+
+  function removeStep(choreId, stepId){
+    chores = chores.map(c => {
+      if(c.id !== choreId) return c;
+      return {...c, steps: c.steps.filter(s => s.id !== stepId)};
+    });
+    render();
+    scheduleSave();
+  }
+
+  function addSimpleChore(){
+    const value = addInput.value.trim();
+    if(!value) return;
+    chores.push({ id: uid(), text: value, done: false });
+    addInput.value = '';
+    render();
+    scheduleSave();
+    closeSheet();
+  }
+
+  function clearCompleted(){
+    chores = chores.filter(c => !isChoreComplete(c));
+    render();
+    scheduleSave();
+  }
+
+  clearBtn.addEventListener('click', clearCompleted);
+
+  filterBtn.addEventListener('click', () => {
+    hideCompleted = !hideCompleted;
+    render();
+  });
+
+  addBtn.addEventListener('click', addSimpleChore);
+  addInput.addEventListener('keydown', (e) => {
+    if(e.key === 'Enter'){
+      e.preventDefault();
+      addSimpleChore();
+    }
+  });
+
+  multiCancel.addEventListener('click', () => {
+    multiTitle.value = '';
+    multiSteps.value = '';
+    closeSheet();
+  });
+
+  multiSave.addEventListener('click', () => {
+    const title = multiTitle.value.trim();
+    const stepLines = multiSteps.value.split('\n').map(s => s.trim()).filter(Boolean);
+    if(!title || stepLines.length === 0) return;
+    chores.push({
+      id: uid(),
+      text: title,
+      steps: stepLines.map(text => ({ id: uid(), text, done: false }))
+    });
+    multiTitle.value = '';
+    multiSteps.value = '';
+    render();
+    scheduleSave();
+    closeSheet();
+  });
+
+  function getCandidates(){
+    const candidates = [];
+    chores.forEach(chore => {
+      if(chore.steps){
+        const nextStep = chore.steps.find(s => !s.done);
+        if(nextStep){
+          candidates.push({ label: nextStep.text, parent: chore.text });
+        }
+      } else if(!chore.done){
+        candidates.push({ label: chore.text, parent: null });
+      }
+    });
+    return candidates;
+  }
+
+  let spinTimer = null;
+  pickBtn.addEventListener('click', () => {
+    const candidates = getCandidates();
+    if(candidates.length === 0) return;
+
+    pickBtn.disabled = true;
+    pickEmpty.hidden = true;
+    pickResult.hidden = false;
+
+    let ticks = 0;
+    const maxTicks = 14 + Math.floor(Math.random() * 6);
+    clearInterval(spinTimer);
+    spinTimer = setInterval(() => {
+      const random = candidates[Math.floor(Math.random() * candidates.length)];
+      pickName.textContent = random.label;
+      pickParent.hidden = !random.parent;
+      pickParent.textContent = random.parent || '';
+      ticks++;
+      if(ticks >= maxTicks){
+        clearInterval(spinTimer);
+        pickBtn.disabled = getCandidates().length === 0;
+      }
+    }, 70);
+  });
+
+  load();
+})();
+</script>
+</body>
+</html>
