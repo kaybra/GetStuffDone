@@ -6,22 +6,19 @@ workflows:
 
     # "GSD_MCH_ASC_KEY" matches the App Store Connect API key name
     # connected under Codemagic Team settings > Integrations > Developer
-    # Portal. That key has App Manager access, so the "Fetch signing
-    # files" script below can create a brand-new distribution certificate
-    # and provisioning profile from scratch, entirely on Codemagic's own
-    # Mac build machine - no local Mac needed, and no certs need to
-    # already exist anywhere.
-    #
-    # NOTE: deliberately no `ios_signing:` block in `environment` below.
-    # That block tells Codemagic to look for an ALREADY-STORED profile
-    # under Settings > Code Signing Identities rather than create one -
-    # since this app has never had a certificate/profile before, that
-    # lookup always fails with "No matching profiles found". The scripted
-    # approach below is what actually creates them.
+    # Portal.
     integrations:
       app_store_connect: GSD_MCH_ASC_KEY
 
     environment:
+      # "ios_signing" is the environment variable group (created in the
+      # app's Environment variables tab) that holds CERTIFICATE_PRIVATE_KEY -
+      # a 2048-bit RSA private key the "Fetch (or create) signing files"
+      # script needs to generate a brand-new distribution certificate from
+      # scratch. Without this, certificate creation fails with "Cannot
+      # save Signing Certificates without certificate private key".
+      groups:
+        - ios_signing
       vars:
         BUNDLE_ID: "com.getstuffdone.gsdmch"
         XCODE_WORKSPACE: "ios/App/App.xcworkspace"
@@ -56,6 +53,7 @@ workflows:
         script: |
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_STORE \
+            --certificate-key=@env:CERTIFICATE_PRIVATE_KEY \
             --create
 
       - name: Add certificates to keychain
