@@ -6,11 +6,15 @@
     "sync": "npx cap sync"
   },
   "dependencies": {
+    "@capacitor/android": "^6.0.0",
     "@capacitor/core": "^6.0.0",
-    "@capacitor/ios": "^6.0.0",
-    "@capacitor/android": "^6.0.0"
+    "@capacitor/ios": "^6.0.0"
   },
   "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
     "@capacitor/cli": "^6.0.0"
+  },
+  "allowScripts": {
+    "sharp@0.32.6": true
   }
 }
