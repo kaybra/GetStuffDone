@@ -20,13 +20,77 @@
     --lav: #c9afff;
     --mint: #a8ffd9;
     --yellow: #ffe9a8;
-    --line: rgba(243,236,255,0.12);
+    /* RGB triplets (no alpha) of the palette colors above, so glow/
+       shadow/tint rules that need a specific opacity can write
+       rgba(var(--pink-rgb), 0.4) instead of a hardcoded rgb triplet.
+       That's what lets the Neutral theme below (:root[data-theme=
+       "neutral"]) recolor every glow, tinted border and translucent
+       fill throughout the stylesheet just by overriding these
+       variables, instead of hunting down and duplicating every
+       individual rule that used to hardcode one of these five colors. */
+    --pink-rgb: 255,158,205;
+    --cyan-rgb: 143,242,255;
+    --lav-rgb: 201,175,255;
+    --mint-rgb: 168,255,217;
+    --yellow-rgb: 255,233,168;
+    --ink-rgb: 243,236,255;
+    --card-rgb: 37,20,64;
+    --bg-rgb: 24,11,46;
+    /* Subtle hairline borders/fills (card edges, sheet handle, dashed
+       add-buttons) were originally a flat rgba(255,255,255,X) — white
+       at low opacity, which reads as a faint light line against this
+       theme's near-black cards. On a light theme that same white-on-
+       white line would be invisible, so it's themed too: unchanged
+       white here, near-black on Neutral below. */
+    --hairline-rgb: 255,255,255;
+    /* Text color for the two recurring gradient-button pairs (pink/lav
+       and cyan/mint gradients). Both read dark-on-pastel here; Neutral's
+       versions of those gradients are more saturated, so its override
+       switches both to white for contrast instead. */
+    --btn-ink-a: #241147;
+    --btn-ink-b: #142a2a;
+    --line: rgba(var(--ink-rgb),0.12);
     --radius: 14px;
     --kb-inset: 0px;
     /* Fixed height of the bottom tab bar (Today / All Tasks / Templates
        / Settings), not counting the device's own safe-area inset. Used
        to push the FAB and the page's own bottom padding up above it. */
     --tabbar-height: 60px;
+  }
+
+  /* Neutral theme (Settings → Theme → Neutral): a light-background
+     alternative to the default synthwave look above, built entirely by
+     overriding the same custom properties every other rule in this file
+     already reads from (var(--pink), rgba(var(--pink-rgb), X), etc.) —
+     so it applies everywhere automatically with no per-component
+     overrides needed beyond this one block. Toggled by setting
+     data-theme on <html> (see applyTheme() in the script) and persisted
+     in localStorage so it survives a restart. Deliberately a light
+     background with green + blue accents only, no pink/lavender/yellow
+     hues, per the user's own description of what they wanted. */
+  :root[data-theme="neutral"]{
+    --bg: #eef6f1;
+    --bg-2: #e2eee7;
+    --card: #ffffff;
+    --card-2: #f3f9f6;
+    --ink: #16241d;
+    --ink-dim: #5e7168;
+    --pink: #1f9d55;
+    --cyan: #2f80ed;
+    --lav: #4c6fdb;
+    --mint: #17b978;
+    --yellow: #38b6ff;
+    --pink-rgb: 31,157,85;
+    --cyan-rgb: 47,128,237;
+    --lav-rgb: 76,111,219;
+    --mint-rgb: 23,185,120;
+    --yellow-rgb: 56,182,255;
+    --ink-rgb: 22,36,29;
+    --card-rgb: 255,255,255;
+    --bg-rgb: 238,246,241;
+    --hairline-rgb: 20,36,29;
+    --btn-ink-a: #ffffff;
+    --btn-ink-b: #ffffff;
   }
 
   *{ box-sizing: border-box; }
@@ -54,9 +118,9 @@
     margin:0;
     min-height:100vh;
     background:
-      radial-gradient(circle at 15% 0%, rgba(255,158,205,0.16), transparent 45%),
-      radial-gradient(circle at 90% 10%, rgba(143,242,255,0.14), transparent 40%),
-      radial-gradient(circle at 50% 100%, rgba(201,175,255,0.16), transparent 50%),
+      radial-gradient(circle at 15% 0%, rgba(var(--pink-rgb),0.16), transparent 45%),
+      radial-gradient(circle at 90% 10%, rgba(var(--cyan-rgb),0.14), transparent 40%),
+      radial-gradient(circle at 50% 100%, rgba(var(--lav-rgb),0.16), transparent 50%),
       linear-gradient(180deg, var(--bg) 0%, var(--bg-2) 100%);
     background-attachment: fixed;
     font-family: 'Work Sans', sans-serif;
@@ -105,7 +169,7 @@
     letter-spacing: -0.01em;
     margin: 0 0 6px;
     color: var(--ink);
-    text-shadow: 0 0 18px rgba(255,158,205,0.45), 0 0 40px rgba(143,242,255,0.18);
+    text-shadow: 0 0 18px rgba(var(--pink-rgb),0.45), 0 0 40px rgba(var(--cyan-rgb),0.18);
   }
 
   .subtitle{
@@ -115,7 +179,7 @@
     font-size: 0.82rem;
     letter-spacing: 0.04em;
     color: var(--cyan);
-    text-shadow: 0 0 12px rgba(143,242,255,0.4);
+    text-shadow: 0 0 12px rgba(var(--cyan-rgb),0.4);
   }
 
   /* Small legend teaching the app's swipe convention (right = add to
@@ -145,8 +209,8 @@
     white-space: nowrap;
   }
   .swipe-legend-icon{ width:13px; height:13px; flex:0 0 auto; }
-  .swipe-legend-add{ background: linear-gradient(120deg, var(--cyan), var(--mint)); color:#142a2a; }
-  .swipe-legend-remove{ background: linear-gradient(120deg, var(--pink), var(--lav)); color:#241147; }
+  .swipe-legend-add{ background: linear-gradient(120deg, var(--cyan), var(--mint)); color:var(--btn-ink-b); }
+  .swipe-legend-remove{ background: linear-gradient(120deg, var(--pink), var(--lav)); color:var(--btn-ink-a); }
 
   .header-row{
     display:flex;
@@ -172,7 +236,7 @@
     padding: 10.5px 18.5px;
     border-radius: 999px;
     white-space: nowrap;
-    box-shadow: 0 0 10px rgba(255,158,205,0.2);
+    box-shadow: 0 0 10px rgba(var(--pink-rgb),0.2);
   }
 
   /* Picker — this is the part that stays pinned to the top of the screen.
@@ -218,8 +282,8 @@
     border-radius: var(--radius);
     padding: 22px;
     margin-bottom: 22px;
-    border: 1px solid rgba(255,255,255,0.08);
-    box-shadow: 0 0 0 1px rgba(255,158,205,0.15), 0 18px 40px rgba(0,0,0,0.4), 0 0 30px rgba(201,175,255,0.10);
+    border: 1px solid rgba(var(--hairline-rgb),0.08);
+    box-shadow: 0 0 0 1px rgba(var(--pink-rgb),0.15), 0 18px 40px rgba(0,0,0,0.4), 0 0 30px rgba(var(--lav-rgb),0.10);
     overflow: hidden;
     overflow-anchor: none;
     transition: box-shadow 0.15s ease-out;
@@ -246,7 +310,7 @@
   .picker.compact{
     padding: 12px 16px;
     margin-bottom: 14px;
-    box-shadow: 0 0 0 1px rgba(255,158,205,0.15), 0 12px 28px rgba(0,0,0,0.45);
+    box-shadow: 0 0 0 1px rgba(var(--pink-rgb),0.15), 0 12px 28px rgba(0,0,0,0.45);
   }
 
   .picker::before{
@@ -325,7 +389,7 @@
     text-align: center;
     padding: 6px 10px;
     border-radius: 16px;
-    box-shadow: 0 0 10px rgba(255,158,205,0.2);
+    box-shadow: 0 0 10px rgba(var(--pink-rgb),0.2);
   }
 
   /* Icon + label pairing shared by the pick/clear/filter buttons. Icons
@@ -353,7 +417,7 @@
     justify-content: center;
     gap: 10px;
     background: linear-gradient(120deg, var(--pink), var(--lav));
-    color: #241147;
+    color: var(--btn-ink-a);
     border:none;
     border-radius: 999px;
     padding: 15px 20px;
@@ -362,11 +426,11 @@
     font-size: 1rem;
     cursor:pointer;
     transition: transform 0.12s ease, box-shadow 0.2s ease, padding 0.15s ease-out, font-size 0.15s ease-out, width 0.15s ease-out, height 0.15s ease-out, border-radius 0.15s ease-out;
-    box-shadow: 0 0 20px rgba(255,158,205,0.35);
+    box-shadow: 0 0 20px rgba(var(--pink-rgb),0.35);
   }
   .pick-btn:active{ transform: scale(0.97); }
   .pick-btn:disabled{ opacity:0.4; cursor:default; box-shadow:none; }
-  .pick-btn:hover:not(:disabled){ box-shadow: 0 0 28px rgba(143,242,255,0.45); }
+  .pick-btn:hover:not(:disabled){ box-shadow: 0 0 28px rgba(var(--cyan-rgb),0.45); }
   /* Compact: the pick button becomes a fixed-height (72px) icon button
      that shares equal width with the clear/filter column and the
      completed-count badge (flex:1, same as those two), so all three
@@ -385,9 +449,9 @@
     align-items: center;
     justify-content: center;
     gap: 8px;
-    background: rgba(143,242,255,0.14);
+    background: rgba(var(--cyan-rgb),0.14);
     color: var(--cyan);
-    border: 1px solid rgba(143,242,255,0.4);
+    border: 1px solid rgba(var(--cyan-rgb),0.4);
     border-radius: 999px;
     padding: 9px 20px;
     font-family:'Work Sans', sans-serif;
@@ -397,7 +461,7 @@
     margin-top: 10px;
     transition: background 0.15s ease, box-shadow 0.15s ease, padding 0.15s ease-out, font-size 0.15s ease-out, margin-top 0.15s ease-out, width 0.15s ease-out, height 0.15s ease-out, border-radius 0.15s ease-out;
   }
-  .clear-btn:hover{ background: rgba(143,242,255,0.24); box-shadow: 0 0 14px rgba(143,242,255,0.3); }
+  .clear-btn:hover{ background: rgba(var(--cyan-rgb),0.24); box-shadow: 0 0 14px rgba(var(--cyan-rgb),0.3); }
   .clear-btn:disabled{ opacity:0.35; cursor:default; box-shadow:none; }
   .picker.compact .clear-btn{
     width: auto;
@@ -414,9 +478,9 @@
     align-items: center;
     justify-content: center;
     gap: 8px;
-    background: rgba(201,175,255,0.14);
+    background: rgba(var(--lav-rgb),0.14);
     color: var(--lav);
-    border: 1px solid rgba(201,175,255,0.4);
+    border: 1px solid rgba(var(--lav-rgb),0.4);
     border-radius: 999px;
     padding: 9px 20px;
     font-family:'Work Sans', sans-serif;
@@ -426,10 +490,10 @@
     margin-top: 10px;
     transition: background 0.15s ease, box-shadow 0.15s ease, padding 0.15s ease-out, font-size 0.15s ease-out, margin-top 0.15s ease-out, width 0.15s ease-out, height 0.15s ease-out, border-radius 0.15s ease-out;
   }
-  .filter-btn:hover{ background: rgba(201,175,255,0.24); box-shadow: 0 0 14px rgba(201,175,255,0.3); }
+  .filter-btn:hover{ background: rgba(var(--lav-rgb),0.24); box-shadow: 0 0 14px rgba(var(--lav-rgb),0.3); }
   .filter-btn.active{
     background: linear-gradient(120deg, var(--lav), var(--pink));
-    color: #241147;
+    color: var(--btn-ink-a);
     border-color: transparent;
   }
   .picker.compact .filter-btn{
@@ -466,7 +530,7 @@
     font-weight:600;
     font-size: 1.5rem;
     color: var(--yellow);
-    text-shadow: 0 0 16px rgba(255,233,168,0.5);
+    text-shadow: 0 0 16px rgba(var(--yellow-rgb),0.5);
     display:inline-block;
     min-height: 1.3em;
     transition: font-size 0.15s ease-out;
@@ -500,7 +564,7 @@
     display:flex;
     align-items:center;
     gap: 12px;
-    border: 1px solid rgba(255,255,255,0.06);
+    border: 1px solid rgba(var(--hairline-rgb),0.06);
     box-shadow: 0 4px 14px rgba(0,0,0,0.3);
   }
 
@@ -520,7 +584,7 @@
   .item.done .check, .step.done .check{
     background: var(--mint);
     border-color: var(--mint);
-    box-shadow: 0 0 12px rgba(168,255,217,0.6);
+    box-shadow: 0 0 12px rgba(var(--mint-rgb),0.6);
   }
   .check svg{
     width:12px; height:12px;
@@ -542,7 +606,7 @@
     cursor: default;
     background: var(--lav);
     border-color: var(--lav);
-    box-shadow: 0 0 10px rgba(201,175,255,0.45);
+    box-shadow: 0 0 10px rgba(var(--lav-rgb),0.45);
   }
 
   .text{
@@ -614,15 +678,15 @@
   .add-step-row button{
     flex: 0 0 auto;
     width: 32px;
-    background: rgba(143,242,255,0.14);
-    border: 1px solid rgba(143,242,255,0.3);
+    background: rgba(var(--cyan-rgb),0.14);
+    border: 1px solid rgba(var(--cyan-rgb),0.3);
     color: var(--cyan);
     border-radius: 8px;
     font-size: 1.1rem;
     line-height:1;
     cursor:pointer;
   }
-  .add-step-row button:hover{ background: rgba(143,242,255,0.24); }
+  .add-step-row button:hover{ background: rgba(var(--cyan-rgb),0.24); }
 
   /* Multi-step card */
   .multi{
@@ -651,7 +715,7 @@
     flex-direction:column;
     gap: 7px;
     padding-left: 6px;
-    border-left: 2px solid rgba(201,175,255,0.25);
+    border-left: 2px solid rgba(var(--lav-rgb),0.25);
     margin-left: 6px;
   }
   .step{
@@ -667,12 +731,12 @@
   }
   .step .text{ font-size: 0.9rem; }
   .step.next{
-    background: rgba(255,233,168,0.08);
-    box-shadow: 0 0 0 1px rgba(255,233,168,0.25) inset;
+    background: rgba(var(--yellow-rgb),0.08);
+    box-shadow: 0 0 0 1px rgba(var(--yellow-rgb),0.25) inset;
   }
   .step.next .check{
     border-color: var(--yellow);
-    box-shadow: 0 0 10px rgba(255,233,168,0.5);
+    box-shadow: 0 0 10px rgba(var(--yellow-rgb),0.5);
   }
 
   .empty-state{
@@ -686,10 +750,10 @@
   .add-form{
     display:flex;
     gap: 8px;
-    background: rgba(255,255,255,0.05);
+    background: rgba(var(--hairline-rgb),0.05);
     padding: 8px;
     border-radius: 999px;
-    border: 1px solid rgba(255,255,255,0.1);
+    border: 1px solid rgba(var(--hairline-rgb),0.1);
   }
   .add-form input{
     flex:1;
@@ -704,7 +768,7 @@
   .add-form input::placeholder{ color: var(--ink-dim); }
   .add-form button{
     background: linear-gradient(120deg, var(--cyan), var(--mint));
-    color: #142a2a;
+    color: var(--btn-ink-b);
     border:none;
     border-radius: 999px;
     padding: 9px 18px;
@@ -743,15 +807,15 @@
     border-radius: 50%;
     border: none;
     background: linear-gradient(120deg, var(--pink), var(--lav));
-    color: #241147;
+    color: var(--btn-ink-a);
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    box-shadow: 0 12px 28px rgba(255,158,205,0.4), 0 0 0 1px rgba(255,255,255,0.08);
+    box-shadow: 0 12px 28px rgba(var(--pink-rgb),0.4), 0 0 0 1px rgba(var(--hairline-rgb),0.08);
     transition: transform 0.15s ease, box-shadow 0.2s ease;
   }
-  .fab:hover{ box-shadow: 0 14px 32px rgba(143,242,255,0.45), 0 0 0 1px rgba(255,255,255,0.08); }
+  .fab:hover{ box-shadow: 0 14px 32px rgba(var(--cyan-rgb),0.45), 0 0 0 1px rgba(var(--hairline-rgb),0.08); }
   .fab:active{ transform: scale(0.94); }
   .fab svg{ width: 24px; height: 24px; }
 
@@ -766,8 +830,8 @@
     width: 46px;
     height: 46px;
     border-radius: 50%;
-    border: 1px solid rgba(201,175,255,0.4);
-    background: rgba(201,175,255,0.16);
+    border: 1px solid rgba(var(--lav-rgb),0.4);
+    background: rgba(var(--lav-rgb),0.16);
     backdrop-filter: blur(6px);
     color: var(--lav);
     display: flex;
@@ -777,7 +841,7 @@
     box-shadow: 0 10px 24px rgba(0,0,0,0.4);
     transition: transform 0.15s ease, background 0.15s ease;
   }
-  .fab-secondary:hover{ background: rgba(201,175,255,0.26); }
+  .fab-secondary:hover{ background: rgba(var(--lav-rgb),0.26); }
   .fab-secondary:active{ transform: scale(0.94); }
   .fab-secondary svg{ width: 18px; height: 18px; }
 
@@ -819,7 +883,7 @@
     z-index: 80;
     background: linear-gradient(165deg, var(--card), var(--card-2));
     border-radius: 20px 20px 0 0;
-    border: 1px solid rgba(255,255,255,0.1);
+    border: 1px solid rgba(var(--hairline-rgb),0.1);
     border-bottom: none;
     padding: 10px 20px calc(24px + env(safe-area-inset-bottom, 0px));
     box-shadow: 0 -14px 40px rgba(0,0,0,0.5);
@@ -830,7 +894,7 @@
   .sheet-handle{
     width: 40px;
     height: 4px;
-    background: rgba(255,255,255,0.18);
+    background: rgba(var(--hairline-rgb),0.18);
     border-radius: 999px;
     margin: 6px auto 14px;
   }
@@ -890,26 +954,26 @@
      add-chore flows read as the same action rather than two different
      button styles (this one previously used the pink/lavender gradient
      shared with the picker's own "Pick something for me" button). */
-  #multiSheet .save{ background: linear-gradient(120deg, var(--cyan), var(--mint)); color:#142a2a; }
-  #multiSheet .cancel{ background: rgba(255,255,255,0.08); color: var(--ink); }
+  #multiSheet .save{ background: linear-gradient(120deg, var(--cyan), var(--mint)); color:var(--btn-ink-b); }
+  #multiSheet .cancel{ background: rgba(var(--hairline-rgb),0.08); color: var(--ink); }
 
   .status-line{
     text-align:center;
-    color: rgba(243,236,255,0.35);
+    color: rgba(var(--ink-rgb),0.35);
     font-size: 0.78rem;
     margin-top: 18px;
   }
 
   .version-tag{
     text-align:center;
-    color: rgba(243,236,255,0.22);
+    color: rgba(var(--ink-rgb),0.22);
     font-size: 0.7rem;
     margin: 4px 0 0;
   }
 
   .credit-line{
     text-align:center;
-    color: rgba(243,236,255,0.22);
+    color: rgba(var(--ink-rgb),0.22);
     font-size: 0.7rem;
     margin: 2px 0 0;
     padding: 0 20px;
@@ -920,7 +984,7 @@
      sentence rather than a continuation of the Simone Giertz credit. */
   .support-line{
     text-align:center;
-    color: rgba(243,236,255,0.22);
+    color: rgba(var(--ink-rgb),0.22);
     font-size: 0.7rem;
     margin: 10px 0 0;
     padding: 0 20px;
@@ -929,7 +993,7 @@
   .credit-link{
     color: var(--pink);
     text-decoration: underline;
-    text-decoration-color: rgba(255,158,205,0.45);
+    text-decoration-color: rgba(var(--pink-rgb),0.45);
     text-underline-offset: 2px;
   }
   .credit-link:hover, .credit-link:focus-visible{
@@ -1026,10 +1090,10 @@
     height: calc(var(--tabbar-height) + env(safe-area-inset-bottom, 0px));
     padding-bottom: env(safe-area-inset-bottom, 0px);
     display: flex;
-    background: linear-gradient(180deg, rgba(37,20,64,0.92), rgba(24,11,46,0.98));
+    background: linear-gradient(180deg, rgba(var(--card-rgb),0.92), rgba(var(--bg-rgb),0.98));
     -webkit-backdrop-filter: blur(10px);
     backdrop-filter: blur(10px);
-    border-top: 1px solid rgba(255,255,255,0.08);
+    border-top: 1px solid rgba(var(--hairline-rgb),0.08);
     box-shadow: 0 -6px 20px rgba(0,0,0,0.35);
     z-index: 55;
   }
@@ -1051,7 +1115,7 @@
   }
   .tab-btn svg{ width: 22px; height: 22px; }
   .tab-btn.active{ color: var(--pink); }
-  .tab-btn.active svg{ filter: drop-shadow(0 0 6px rgba(255,158,205,0.5)); }
+  .tab-btn.active svg{ filter: drop-shadow(0 0 6px rgba(var(--pink-rgb),0.5)); }
 
   /* All Tasks page: task sections (Priority / In the next week / In the
      next month), each its own collapsible header + list + inline add
@@ -1076,7 +1140,6 @@
     background:none;
     border:none;
     border-bottom: 2px solid var(--mint);
-    box-shadow: 0 1px 8px rgba(168,255,217,0.35);
     padding: 4px 2px 12px;
     margin: 4px 0 14px;
     cursor:pointer;
@@ -1095,7 +1158,7 @@
     letter-spacing: 0.03em;
     text-transform: uppercase;
     color: var(--lav);
-    text-shadow: 0 0 14px rgba(201,175,255,0.35);
+    text-shadow: 0 0 14px rgba(var(--lav-rgb),0.35);
     margin: 0;
     transition: color 0.15s ease;
   }
@@ -1114,7 +1177,7 @@
      show/hide toggle in this app works (e.g. the sheets, hidden completed
      rows) rather than introducing a one-off transition style. */
   .task-section.collapsed .section-chevron{ transform: rotate(-90deg); }
-  .task-section.collapsed .section-header{ border-bottom-color: rgba(168,255,217,0.25); box-shadow: none; }
+  .task-section.collapsed .section-header{ border-bottom-color: rgba(var(--mint-rgb),0.25); }
   .task-section.collapsed .section-body{ display: none; }
 
   /* Templates page only: a group's name is fixed once created (see the
@@ -1134,7 +1197,6 @@
     align-items:center;
     gap:8px;
     border-bottom: 2px solid var(--mint);
-    box-shadow: 0 1px 8px rgba(168,255,217,0.35);
     padding: 4px 2px 12px;
     margin: 4px 0 14px;
   }
@@ -1158,8 +1220,8 @@
   .add-group-btn{
     display:block;
     width:100%;
-    background: rgba(255,255,255,0.05);
-    border: 1px dashed rgba(255,255,255,0.22);
+    background: rgba(var(--hairline-rgb),0.05);
+    border: 1px dashed rgba(var(--hairline-rgb),0.22);
     color: var(--ink-dim);
     border-radius: 12px;
     padding: 14px 10px;
@@ -1179,8 +1241,8 @@
   }
   .section-add-btn{
     flex:1;
-    background: rgba(255,255,255,0.05);
-    border: 1px dashed rgba(255,255,255,0.22);
+    background: rgba(var(--hairline-rgb),0.05);
+    border: 1px dashed rgba(var(--hairline-rgb),0.22);
     color: var(--ink-dim);
     border-radius: 12px;
     padding: 10px 8px;
@@ -1210,7 +1272,7 @@
     flex: 0 0 auto;
     font-size: 0.66rem;
     font-weight: 700;
-    color: #241147;
+    color: var(--btn-ink-a);
     background: linear-gradient(120deg, var(--pink), var(--lav));
     padding: 3px 9px;
     border-radius: 999px;
@@ -1244,9 +1306,206 @@
     font-weight:600;
     font-size: 0.9rem;
   }
-  .swipe-bg-add{ background: linear-gradient(120deg, var(--cyan), var(--mint)); color:#142a2a; }
-  .swipe-bg-remove{ background: linear-gradient(120deg, var(--pink), var(--lav)); color:#241147; }
+  .swipe-bg-add{ background: linear-gradient(120deg, var(--cyan), var(--mint)); color:var(--btn-ink-b); }
+  .swipe-bg-remove{ background: linear-gradient(120deg, var(--pink), var(--lav)); color:var(--btn-ink-a); }
   .swipe-fg{ position: relative; z-index: 1; }
+
+  /* Settings page. Each row is a card matching the app's other list-item
+     look (.item), split into a label/description pair on the left and
+     one control on the right — a toggle switch, a two-way theme picker,
+     or a plain button, depending on the row. */
+  .settings-list{
+    display:flex;
+    flex-direction:column;
+    gap: 12px;
+  }
+  .settings-row{
+    background: linear-gradient(155deg, var(--card), var(--card-2));
+    border-radius: var(--radius);
+    padding: 16px;
+    display:flex;
+    align-items:center;
+    justify-content: space-between;
+    gap: 14px;
+    border: 1px solid rgba(var(--hairline-rgb),0.06);
+    box-shadow: 0 4px 14px rgba(0,0,0,0.3);
+  }
+  .settings-row-stacked{
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .settings-row-text{
+    display:flex;
+    flex-direction:column;
+    gap: 4px;
+    min-width: 0;
+  }
+  .settings-row-label{
+    font-family:'Space Grotesk', sans-serif;
+    font-weight:600;
+    font-size: 0.98rem;
+    color: var(--ink);
+  }
+  .settings-row-desc{
+    font-size: 0.8rem;
+    line-height: 1.4;
+    color: var(--ink-dim);
+  }
+
+  /* Toggle switch — a real <button role="switch"> rather than a styled
+     checkbox, so it's a proper tap target and reads correctly to a
+     screen reader (aria-checked kept in sync in the script below). The
+     knob's position is driven purely by the `.on` class, not by any
+     stored/inherited state, so it can never drift out of sync with
+     aria-checked. */
+  .toggle-switch{
+    flex: 0 0 auto;
+    width: 48px;
+    height: 28px;
+    border-radius: 999px;
+    border: none;
+    background: rgba(var(--hairline-rgb),0.14);
+    padding: 3px;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    transition: background 0.15s ease;
+  }
+  .toggle-switch.on{
+    background: linear-gradient(120deg, var(--pink), var(--lav));
+  }
+  .toggle-switch-knob{
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--ink);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.35);
+    transition: transform 0.15s ease;
+  }
+  .toggle-switch.on .toggle-switch-knob{
+    transform: translateX(20px);
+    background: var(--btn-ink-a);
+  }
+
+  /* Theme picker — a two-option segmented control, same visual language
+     as .filter-btn.active (gradient fill + dark text when selected). */
+  .theme-picker{
+    display:flex;
+    gap: 8px;
+    margin-top: 4px;
+  }
+  .theme-option{
+    flex:1;
+    background: rgba(var(--hairline-rgb),0.06);
+    border: 1px solid rgba(var(--hairline-rgb),0.14);
+    color: var(--ink-dim);
+    border-radius: 999px;
+    padding: 9px 12px;
+    font-family:'Work Sans', sans-serif;
+    font-weight:600;
+    font-size: 0.85rem;
+    cursor:pointer;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  }
+  .theme-option.active{
+    background: linear-gradient(120deg, var(--pink), var(--lav));
+    color: var(--btn-ink-a);
+    border-color: transparent;
+  }
+
+  .settings-action-btn{
+    flex: 0 0 auto;
+    background: rgba(var(--hairline-rgb),0.06);
+    border: 1px solid rgba(var(--hairline-rgb),0.18);
+    color: var(--cyan);
+    border-radius: 999px;
+    padding: 9px 16px;
+    font-family:'Work Sans', sans-serif;
+    font-weight:600;
+    font-size: 0.82rem;
+    cursor:pointer;
+    white-space: nowrap;
+    transition: background 0.15s ease;
+  }
+  .settings-action-btn:hover{ background: rgba(var(--hairline-rgb),0.12); }
+
+  /* Drag-to-reorder between All Tasks groups (Priority / In the next
+     week / In the next month). Deliberately a dedicated handle rather
+     than making the whole card draggable on long-press: cards already
+     have a horizontal swipe gesture (attachSwipe, in the script) plus
+     tap targets of their own (checkbox, editable text, delete), and a
+     handle is the only way to add a third, omnidirectional drag gesture
+     without any of them fighting each other for the same pointerdown.
+     See startCardDrag() in the script for the actual drag logic — this
+     only covers what it looks like. */
+  .drag-handle{
+    flex: 0 0 auto;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    background:none;
+    border:none;
+    color: var(--ink-dim);
+    cursor: grab;
+    touch-action: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .drag-handle:hover{ color: var(--ink); }
+  .drag-handle:active{ cursor: grabbing; }
+  .drag-handle svg{ width: 16px; height: 16px; }
+
+  /* Floating visual that tracks the pointer during a drag — a compact
+     pill rather than a full clone of the card, so it can't accidentally
+     duplicate interactive children (editable text, buttons) or drift out
+     of sync with the real row's own event listeners. Position (left/top)
+     is set once at drag start from the source row's rect; movement after
+     that is a `transform: translate(...)` applied in the script, which
+     is why left/top themselves are never touched again. */
+  .drag-ghost{
+    position: fixed;
+    z-index: 90;
+    display:flex;
+    align-items:center;
+    gap: 8px;
+    max-width: 280px;
+    padding: 10px 16px;
+    border-radius: 999px;
+    background: linear-gradient(120deg, var(--pink), var(--lav));
+    color: var(--btn-ink-a);
+    font-family:'Space Grotesk', sans-serif;
+    font-weight:600;
+    font-size: 0.88rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    box-shadow: 0 14px 30px rgba(0,0,0,0.4);
+    pointer-events: none;
+  }
+
+  /* Dashed drop-zone marker — the script moves this element itself
+     around between/within section lists to track the pointer, so its
+     current DOM position at drop time IS the answer to "where does the
+     dragged task land". Sized to roughly match a simple row's height;
+     a multi-step card obviously won't match exactly, but the marker
+     only needs to communicate roughly where the drop will land, not
+     reproduce the exact target card's height. */
+  .drag-placeholder{
+    height: 52px;
+    border-radius: var(--radius);
+    border: 2px dashed rgba(var(--lav-rgb),0.6);
+    background: rgba(var(--lav-rgb),0.08);
+  }
+
+  /* Brief highlight on whichever section the drag is currently over, so
+     it's clear which group a drop will file into — most useful for a
+     section that's collapsed (see maybeExpandSectionForDrag() in the
+     script), since its own .list/placeholder aren't visible to look at. */
+  .task-section.drag-target > .section-header{
+    border-bottom-color: var(--lav);
+  }
 
   @media (prefers-reduced-motion: reduce){
     .pick-btn{ transition:none; }
@@ -1298,7 +1557,7 @@
       <div class="tally-badge" id="tally">&hellip;</div>
     </div>
     <p class="swipe-legend">
-      <span class="swipe-legend-chip swipe-legend-remove">Swipe left to remove<svg class="swipe-legend-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 12H6M11 6l-6 6 6 6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+      <span class="swipe-legend-chip swipe-legend-remove">Swipe left to remove from Today<svg class="swipe-legend-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 12H6M11 6l-6 6 6 6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
     </p>
   </header>
 
@@ -1332,7 +1591,7 @@
 
   <p class="status-line" id="statusLine"></p>
 
-  <p class="version-tag">v1.2.1</p>
+  <p class="version-tag">v1.2.4</p>
   <p class="credit-line">Inspired by a video by Simone Giertz,<br>please check out <a class="credit-link" href="https://www.youtube.com/@simonegiertz" target="_blank" rel="noopener noreferrer">her channel</a></p>
   <p class="support-line">This app is free and ad-free, but you can<br><a class="credit-link" href="https://ko-fi.com/getstuffdone" target="_blank" rel="noopener noreferrer">buy me a coffee here</a></p>
   </div>
@@ -1442,7 +1701,37 @@
 
   <div class="page" id="pageSettings" hidden>
     <header><h1>Settings</h1></header>
-    <p class="empty-state">Settings are coming soon.</p>
+
+    <div class="settings-list">
+      <div class="settings-row">
+        <div class="settings-row-text">
+          <span class="settings-row-label">Completed celebration screen</span>
+          <span class="settings-row-desc">Show the celebration screen when every task on Today (or every task in All Tasks) is checked off.</span>
+        </div>
+        <button type="button" class="toggle-switch" id="toggleCelebration" role="switch" aria-checked="true" aria-label="Show completed celebration screen">
+          <span class="toggle-switch-knob"></span>
+        </button>
+      </div>
+
+      <div class="settings-row settings-row-stacked">
+        <div class="settings-row-text">
+          <span class="settings-row-label">Theme</span>
+          <span class="settings-row-desc">Vibrant is the default neon look. Neutral swaps in a light background with green and blue accents.</span>
+        </div>
+        <div class="theme-picker" id="themePicker" role="radiogroup" aria-label="Theme">
+          <button type="button" class="theme-option" data-theme-choice="vibrant" role="radio" aria-checked="false">Vibrant</button>
+          <button type="button" class="theme-option" data-theme-choice="neutral" role="radio" aria-checked="false">Neutral</button>
+        </div>
+      </div>
+
+      <div class="settings-row">
+        <div class="settings-row-text">
+          <span class="settings-row-label">Tips</span>
+          <span class="settings-row-desc">Bring back the one-off tips you've dismissed.</span>
+        </div>
+        <button type="button" class="settings-action-btn" id="showTipsBtn">Show tips again</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -1467,7 +1756,7 @@
      straight by switchPage() in the script below. -->
 <nav class="tabbar" id="tabbar">
   <button type="button" class="tab-btn" data-page="today" aria-label="Today">
-    <svg viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="16" rx="3" stroke="currentColor" stroke-width="1.6"/><path d="M7 9h6M7 13h4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M7 17l1.5 1.5L12 15" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5l2.9 6.1 6.6.9-4.8 4.7 1.1 6.6L12 17.7l-5.8 3.1 1.1-6.6-4.8-4.7 6.6-.9 2.9-6.1z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
     <span>Today</span>
   </button>
   <button type="button" class="tab-btn" data-page="allTasks" aria-label="All Tasks">
@@ -1479,7 +1768,7 @@
     <span>Templates</span>
   </button>
   <button type="button" class="tab-btn" data-page="settings" aria-label="Settings">
-    <svg viewBox="0 0 24 24" fill="none"><path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z" stroke="currentColor" stroke-width="1.6"/><path d="M19.4 13.5a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V19.5a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1.08-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H4.5a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1.08 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H10.5a1.65 1.65 0 0 0 1-1.51V4.5a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V10.5a1.65 1.65 0 0 0 1.51 1H19.5a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
+    <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.6"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
     <span>Settings</span>
   </button>
 </nav>
@@ -1531,6 +1820,14 @@
   // `chores:list` — see the long comment on `templateGroups` near
   // `chores` below for why they're never the same array.
   const TEMPLATES_STORAGE_KEY = 'templates:groups';
+  // Settings: also its own storage key, same reasoning as Templates —
+  // a corrupt/missing settings blob should never be able to take the
+  // actual task data down with it. Defaults match the app's original,
+  // pre-Settings-page behavior exactly (celebration screen on, Vibrant
+  // theme), so anyone updating from a build before this page existed
+  // sees no change until they actually open Settings and touch something.
+  const SETTINGS_STORAGE_KEY = 'settings:prefs';
+  const DEFAULT_SETTINGS = { hideCelebration: false, theme: 'vibrant' };
   const list = document.getElementById('list');
   const tally = document.getElementById('tally');
   const compactTally = document.getElementById('compactTally');
@@ -1618,6 +1915,75 @@
   const tabButtons = Array.from(document.querySelectorAll('.tab-btn'));
   const fabLayer = document.getElementById('fabLayer');
 
+  // --- Settings refs ----------------------------------------------------
+  const toggleCelebration = document.getElementById('toggleCelebration');
+  const themePicker = document.getElementById('themePicker');
+  const themeOptionBtns = Array.from(themePicker.querySelectorAll('.theme-option'));
+  const showTipsBtn = document.getElementById('showTipsBtn');
+
+  // Swaps the whole app's color scheme by setting data-theme on <html>;
+  // every color in the stylesheet is a var(--x) or rgba(var(--x-rgb), Y)
+  // read off :root / :root[data-theme="neutral"] (see the CSS), so this
+  // one attribute is the entire mechanism — nothing else needs touching.
+  function applyTheme(theme){
+    document.documentElement.setAttribute('data-theme', theme === 'neutral' ? 'neutral' : 'vibrant');
+  }
+
+  // Keeps the Settings page's own controls in sync with `settings` —
+  // called once after load() and again after every change, same pattern
+  // as render() keeping the task list in sync with `chores`.
+  function updateSettingsUI(){
+    const celebrationOn = !settings.hideCelebration;
+    toggleCelebration.classList.toggle('on', celebrationOn);
+    toggleCelebration.setAttribute('aria-checked', String(celebrationOn));
+    themeOptionBtns.forEach((btn) => {
+      const isActive = btn.dataset.themeChoice === settings.theme;
+      btn.classList.toggle('active', isActive);
+      btn.setAttribute('aria-checked', String(isActive));
+    });
+  }
+
+  // Settings save immediately on change rather than going through
+  // scheduleSave()'s 250ms debounce — there's no rapid-fire typing to
+  // coalesce here (a toggle/segmented-control tap is already a single
+  // discrete event), and a theme/celebration choice feels like it should
+  // stick the instant it's tapped.
+  function persistSettings(){
+    try{
+      localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+    }catch(e){
+      statusLine.textContent = 'Could not save — changes may not persist.';
+    }
+  }
+
+  toggleCelebration.addEventListener('click', () => {
+    settings.hideCelebration = !settings.hideCelebration;
+    updateSettingsUI();
+    persistSettings();
+  });
+
+  themeOptionBtns.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const choice = btn.dataset.themeChoice === 'neutral' ? 'neutral' : 'vibrant';
+      if(choice === settings.theme) return;
+      settings.theme = choice;
+      applyTheme(choice);
+      updateSettingsUI();
+      persistSettings();
+    });
+  });
+
+  // Placeholder — there's no dismissible-tips system yet to reset, so
+  // this doesn't have anything real to do. Wired up now so the row
+  // already behaves like a live control (a brief confirmation) rather
+  // than sitting there doing nothing when tapped, once tips do exist.
+  showTipsBtn.addEventListener('click', () => {
+    statusLine.textContent = 'Tips are coming in a future update.';
+    window.setTimeout(() => {
+      if(statusLine.textContent === 'Tips are coming in a future update.') statusLine.textContent = '';
+    }, 2200);
+  });
+
   // --- All Tasks refs --------------------------------------------------
   const listPriority = document.getElementById('listPriority');
   const listWeek = document.getElementById('listWeek');
@@ -1663,6 +2029,11 @@
   // state — toggling one doesn't affect what the other page shows.
   let hideCompletedToday = false;
   let hideCompletedAllTasks = false;
+  // User-facing Settings. Unlike hideCompletedToday/hideCompletedAllTasks
+  // above, this genuinely is persisted (see persistSettings()) — a theme
+  // or celebration-screen choice should survive a restart the same way
+  // the task list itself does.
+  let settings = { ...DEFAULT_SETTINGS };
   // Which section (if any) a chore added through the currently-open
   // add/multi-add sheet should be filed into. null means "adding
   // directly on Today" (the sheet's original, pre-All-Tasks behavior):
@@ -1683,6 +2054,14 @@
   // template target leaks into an ordinary Today/All Tasks add or vice
   // versa.
   let sheetTargetTemplateGroupId = null;
+
+  // Drag-between-groups state (All Tasks only) — null whenever no drag
+  // is in progress. See startCardDrag() and friends, further down, for
+  // the actual mechanics; kept as one object rather than several loose
+  // variables so a stray leftover from a previous drag can never bleed
+  // into the next one (starting a new drag always creates a fresh
+  // object rather than mutating an old one in place).
+  let cardDragState = null;
 
   // Templates page collapse state — same session-only, DOM-adjacent
   // pattern as hideCompletedToday/hideCompletedAllTasks above, EXCEPT it
@@ -2035,6 +2414,15 @@
     }
     templateGroups = templateGroups.map(normalizeTemplateGroup);
 
+    try{
+      const rawSettings = localStorage.getItem(SETTINGS_STORAGE_KEY);
+      settings = rawSettings ? { ...DEFAULT_SETTINGS, ...JSON.parse(rawSettings) } : { ...DEFAULT_SETTINGS };
+    }catch(e){
+      settings = { ...DEFAULT_SETTINGS };
+    }
+    applyTheme(settings.theme);
+    updateSettingsUI();
+
     renderAll();
   }
 
@@ -2058,7 +2446,11 @@
   }
 
   function checkSvg(){
-    return '<svg viewBox="0 0 16 16" fill="none"><path d="M3 8.5L6.2 11.5L13 4.5" stroke="#180b2e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    // Stroke is var(--bg) rather than a fixed hex — the check circle
+    // itself fills with var(--mint) once done, so this "punches a hole"
+    // the same color as the page background in both themes: a dark mark
+    // on Vibrant's pale mint, a light mark on Neutral's saturated green.
+    return '<svg viewBox="0 0 16 16" fill="none"><path d="M3 8.5L6.2 11.5L13 4.5" stroke="var(--bg)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   }
 
   function makeEditable(span, currentValue, onSave){
@@ -2135,7 +2527,14 @@
     }
     visibleChores.forEach(chore => {
       const card = chore.steps ? renderMultiCard(chore, hideFlag, pageContext) : renderSimpleRow(chore, pageContext);
-      const finalEl = chore.section ? attachSwipe(card, chore, pageContext) : card;
+      // Every Today row is swipeable now, not just ones that already have
+      // an All Tasks section — see removeFromToday() below for what
+      // swiping a section-less one actually does. On All Tasks itself,
+      // `chore.section` is always truthy for anything that reaches this
+      // function (each SECTION_LISTS call already filtered to one
+      // section), so this is equivalent to the old `chore.section` check
+      // there — only Today's behavior actually changes.
+      const finalEl = (pageContext === 'today' || chore.section) ? attachSwipe(card, chore, pageContext) : card;
       containerEl.appendChild(finalEl);
     });
   }
@@ -2185,7 +2584,7 @@
     filterBtn.classList.toggle('active', hideCompletedToday);
     filterBtnIcon.innerHTML = hideCompletedToday ? EYE_ICON : EYE_SLASH_ICON;
 
-    if(previousRemaining !== null && previousRemaining > 0 && remaining === 0 && todayChores.length > 0){
+    if(previousRemaining !== null && previousRemaining > 0 && remaining === 0 && todayChores.length > 0 && !settings.hideCelebration){
       splash.hidden = false;
     }
     previousRemaining = remaining;
@@ -2226,10 +2625,30 @@
         remainingAllTasks += 1;
       }
     });
-    if(currentPage === 'allTasks' && previousRemainingAllTasks !== null && previousRemainingAllTasks > 0 && remainingAllTasks === 0 && allTaskChores.length > 0){
+    if(currentPage === 'allTasks' && previousRemainingAllTasks !== null && previousRemainingAllTasks > 0 && remainingAllTasks === 0 && allTaskChores.length > 0 && !settings.hideCelebration){
       allTasksSplash.hidden = false;
     }
     previousRemainingAllTasks = remainingAllTasks;
+  }
+
+  // Six-dot grip icon, shared by both card shapes — only ever created
+  // for pageContext === 'allTasks' (see the two call sites below), since
+  // dragging between groups only means anything there.
+  function makeDragHandle(chore){
+    const handle = document.createElement('button');
+    handle.type = 'button';
+    handle.className = 'drag-handle';
+    handle.setAttribute('aria-label', 'Drag to move ' + chore.text + ' to a different group');
+    handle.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.4"/><circle cx="15" cy="6" r="1.4"/><circle cx="9" cy="12" r="1.4"/><circle cx="15" cy="12" r="1.4"/><circle cx="9" cy="18" r="1.4"/><circle cx="15" cy="18" r="1.4"/></svg>';
+    handle.addEventListener('pointerdown', (e) => {
+      // Stops this from also reaching the row's own pointerdown listener
+      // (attachSwipe attaches one to the whole card for the horizontal
+      // add/remove-from-Today swipe) — without this, grabbing the handle
+      // would start BOTH gestures on the same touch, fighting each other.
+      e.stopPropagation();
+      startCardDrag(e, chore.id);
+    });
+    return handle;
   }
 
   function renderSimpleRow(chore, pageContext){
@@ -2262,6 +2681,9 @@
       badge.className = 'today-badge';
       badge.textContent = 'On Today';
       row.appendChild(badge);
+    }
+    if(pageContext === 'allTasks'){
+      row.appendChild(makeDragHandle(chore));
     }
     row.appendChild(del);
     return row;
@@ -2297,6 +2719,9 @@
       badge.className = 'today-badge';
       badge.textContent = 'On Today';
       head.appendChild(badge);
+    }
+    if(pageContext === 'allTasks'){
+      head.appendChild(makeDragHandle(chore));
     }
     head.appendChild(del);
     card.appendChild(head);
@@ -2813,6 +3238,11 @@
   function attachSwipe(rowEl, chore, page){
     const wrap = document.createElement('div');
     wrap.className = 'swipe-wrap';
+    // Read by the drag-between-groups logic (startCardDrag() and
+    // friends, below) to figure out sibling order within a section's
+    // list purely from the live DOM, rather than keeping a second,
+    // parallel notion of position that could drift out of sync with it.
+    wrap.dataset.choreId = chore.id;
     const bg = document.createElement('div');
     bg.className = 'swipe-bg';
     wrap.appendChild(bg);
@@ -2869,7 +3299,19 @@
     }
 
     function commit(){
-      setOnToday(chore.id, !willRemoveFromToday());
+      // On Today, the swipe is always a removal (see willRemoveFromToday
+      // — page === 'today' short-circuits it to true), and now that
+      // every Today row is swipeable, that includes ones added directly
+      // on Today that never got an All Tasks section at all. Those go
+      // through removeFromToday() instead of a plain setOnToday(), so
+      // they land in All Tasks (under Priority) rather than just
+      // disappearing off Today with no section to be found in. A chore
+      // that already had a section keeps it — see removeFromToday().
+      if(page === 'today'){
+        removeFromToday(chore.id);
+      } else {
+        setOnToday(chore.id, !willRemoveFromToday());
+      }
     }
 
     rowEl.addEventListener('pointerdown', (e) => {
@@ -2942,6 +3384,197 @@
     return wrap;
   }
 
+  // ---------------------------------------------------------------------
+  // All Tasks: drag a card (via its .drag-handle, created in
+  // renderSimpleRow/renderMultiCard) between Priority / In the next week
+  // / In the next month. Separate mechanism from attachSwipe's
+  // horizontal swipe above — that one gesture is already spoken for
+  // (add/remove-from-Today), so this is a second, handle-only gesture
+  // that can move omnidirectionally without the two ever fighting over
+  // the same pointerdown (the handle's own listener stops the event from
+  // bubbling up to the row's swipe listener — see makeDragHandle).
+  //
+  // Design: rather than moving the real card around the DOM mid-drag
+  // (which would mean detaching it from all its own listeners' assumed
+  // position, or cloning it and risking duplicate ids/listeners), only
+  // two lightweight, purpose-built elements move during the drag itself:
+  // .drag-ghost (a small pill that follows the pointer, purely visual)
+  // and .drag-placeholder (a dashed box that the script actually
+  // repositions within/between section lists — wherever it ends up
+  // sitting in the DOM the instant the drag ends IS the drop position).
+  // The real card stays exactly where it started, hidden, until drop —
+  // at which point `chores` itself is updated and renderAll() rebuilds
+  // everything from scratch, same as any other data change in this app.
+  // ---------------------------------------------------------------------
+
+  function startCardDrag(e, choreId){
+    if(e.pointerType === 'mouse' && e.button !== 0) return;
+    const handle = e.currentTarget;
+    const wrapEl = handle.closest('.swipe-wrap');
+    const chore = chores.find(c => c.id === choreId);
+    if(!wrapEl || !chore) return;
+
+    const rect = wrapEl.getBoundingClientRect();
+
+    try{ handle.setPointerCapture(e.pointerId); }catch(err){ /* not supported — the pointermove/up listeners below are still attached directly to the handle either way, so the drag still tracks as long as the pointer stays over it */ }
+
+    const ghost = document.createElement('div');
+    ghost.className = 'drag-ghost';
+    ghost.textContent = chore.text;
+    ghost.style.left = rect.left + 'px';
+    ghost.style.top = rect.top + 'px';
+    document.body.appendChild(ghost);
+
+    const placeholder = document.createElement('div');
+    placeholder.className = 'drag-placeholder';
+    placeholder.style.height = rect.height + 'px';
+    wrapEl.parentNode.insertBefore(placeholder, wrapEl.nextSibling);
+
+    // Hidden rather than just dimmed: it stays in the DOM (so its own
+    // section is still known if the drag ends without ever crossing
+    // into a different one) but taken out of layout flow entirely, so
+    // it can't also occupy a slot in whichever list the placeholder is
+    // sitting in — which would otherwise briefly double-book a slot
+    // whenever the pointer passes back near the card's own start point.
+    wrapEl.style.display = 'none';
+
+    const startSectionEl = wrapEl.closest('.task-section');
+    cardDragState = {
+      choreId,
+      pointerId: e.pointerId,
+      handle,
+      wrapEl,
+      ghost,
+      placeholder,
+      startX: e.clientX,
+      startY: e.clientY,
+      currentSectionEl: startSectionEl
+    };
+    if(startSectionEl) startSectionEl.classList.add('drag-target');
+
+    handle.addEventListener('pointermove', onCardDragMove);
+    handle.addEventListener('pointerup', endCardDrag);
+    handle.addEventListener('pointercancel', endCardDrag);
+  }
+
+  function maybeExpandSectionForDrag(sectionEl){
+    // A collapsed section still has a place to drop into (the data
+    // doesn't care whether its body is visible), but the user can't see
+    // where they're dropping without expanding it — so dragging over one
+    // auto-expands it, the same way many file browsers/drag UIs open a
+    // collapsed folder under a hovering drag.
+    if(sectionEl.classList.contains('collapsed')){
+      sectionEl.classList.remove('collapsed');
+      const header = sectionEl.querySelector('.section-header');
+      if(header) header.setAttribute('aria-expanded', 'true');
+    }
+  }
+
+  function onCardDragMove(e){
+    if(!cardDragState || e.pointerId !== cardDragState.pointerId) return;
+    const dx = e.clientX - cardDragState.startX;
+    const dy = e.clientY - cardDragState.startY;
+    cardDragState.ghost.style.transform = 'translate(' + dx + 'px, ' + dy + 'px)';
+    if(e.cancelable) e.preventDefault();
+
+    // The ghost is pointer-events:none (see its CSS), so this always
+    // sees real page content underneath it, never the ghost itself.
+    const under = document.elementFromPoint(e.clientX, e.clientY);
+    const sectionEl = under ? under.closest('.task-section') : null;
+    // Pointer isn't over any section right now (e.g. over the tab bar,
+    // the page header, or off past either edge) — leave the placeholder
+    // exactly where it last was rather than guessing.
+    if(!sectionEl) return;
+
+    if(sectionEl !== cardDragState.currentSectionEl){
+      if(cardDragState.currentSectionEl) cardDragState.currentSectionEl.classList.remove('drag-target');
+      sectionEl.classList.add('drag-target');
+      cardDragState.currentSectionEl = sectionEl;
+      maybeExpandSectionForDrag(sectionEl);
+    }
+
+    const listEl = sectionEl.querySelector('.list');
+    if(!listEl) return;
+    // Find the first existing card whose midpoint the pointer is still
+    // above, and put the placeholder right before it; falling off the
+    // end of the loop means the pointer is below every card, so the
+    // placeholder goes last.
+    const siblings = Array.from(listEl.children).filter(el => el !== cardDragState.placeholder);
+    let before = null;
+    for(const sib of siblings){
+      const sibRect = sib.getBoundingClientRect();
+      if(e.clientY < sibRect.top + sibRect.height / 2){ before = sib; break; }
+    }
+    if(before){
+      if(cardDragState.placeholder.nextSibling !== before) listEl.insertBefore(cardDragState.placeholder, before);
+    } else if(listEl.lastElementChild !== cardDragState.placeholder){
+      listEl.appendChild(cardDragState.placeholder);
+    }
+  }
+
+  function endCardDrag(e){
+    if(!cardDragState || (e && e.pointerId !== cardDragState.pointerId)) return;
+    const { choreId, handle, wrapEl, ghost, placeholder, currentSectionEl, pointerId } = cardDragState;
+
+    handle.removeEventListener('pointermove', onCardDragMove);
+    handle.removeEventListener('pointerup', endCardDrag);
+    handle.removeEventListener('pointercancel', endCardDrag);
+    try{ handle.releasePointerCapture(pointerId); }catch(err){ /* already released, or never captured */ }
+
+    const targetSection = currentSectionEl ? currentSectionEl.dataset.section : null;
+    // Whichever real card the placeholder is still sitting directly
+    // before, if any, read straight off the live DOM at this exact
+    // moment — same source onCardDragMove used to move the placeholder
+    // in the first place, so there's exactly one source of truth for
+    // "where did this drag actually end up".
+    let beforeChoreId = null;
+    let sib = placeholder.nextElementSibling;
+    while(sib){
+      if(sib.dataset && sib.dataset.choreId){ beforeChoreId = sib.dataset.choreId; break; }
+      sib = sib.nextElementSibling;
+    }
+
+    ghost.remove();
+    placeholder.remove();
+    wrapEl.style.display = '';
+    document.querySelectorAll('.task-section.drag-target').forEach(el => el.classList.remove('drag-target'));
+    cardDragState = null;
+
+    if(targetSection){
+      moveChoreToSection(choreId, targetSection, beforeChoreId);
+    }
+    // No section under the pointer at drop time (released somewhere the
+    // placeholder never reached, e.g. immediately over the tab bar) —
+    // nothing to move; wrapEl's display was already restored above, so
+    // there's nothing left to clean up.
+  }
+
+  // Moves a chore to (possibly the same) section, landing it right
+  // before `beforeChoreId` if given, or at the end of that section's own
+  // run of chores within `chores` otherwise — never at the literal end
+  // of the whole array, which could visually land it among an unrelated
+  // section's cards purely because of array position.
+  function moveChoreToSection(choreId, targetSection, beforeChoreId){
+    const idx = chores.findIndex(c => c.id === choreId);
+    if(idx === -1) return;
+    const moved = { ...chores[idx], section: targetSection };
+    const rest = chores.filter(c => c.id !== choreId);
+
+    let insertAt = rest.length;
+    if(beforeChoreId){
+      const beforeIdx = rest.findIndex(c => c.id === beforeChoreId);
+      if(beforeIdx !== -1) insertAt = beforeIdx;
+    } else {
+      for(let i = rest.length - 1; i >= 0; i--){
+        if(rest[i].section === targetSection){ insertAt = i + 1; break; }
+      }
+    }
+    rest.splice(insertAt, 0, moved);
+    chores = rest;
+    renderAll();
+    scheduleSave();
+  }
+
   function toggle(choreId, stepId){
     chores = chores.map(chore => {
       if(chore.id !== choreId) return chore;
@@ -3003,6 +3636,23 @@
   // either way, just shown or not shown on the Today page.
   function setOnToday(choreId, value){
     chores = chores.map(c => c.id === choreId ? {...c, onToday: value} : c);
+    renderAll();
+    scheduleSave();
+  }
+
+  // Swiping a task off Today (left) always takes it off Today. If it
+  // already had an All Tasks section (it was swiped/added in from
+  // there), that section is left exactly as it was — this only ever
+  // touches onToday for those. But a task added directly on Today never
+  // got a section in the first place, so removing it from Today would
+  // otherwise just make it vanish with no way to find it again; instead
+  // it's filed into Priority at the same moment it leaves Today, so it
+  // lands somewhere real on All Tasks rather than disappearing.
+  function removeFromToday(choreId){
+    chores = chores.map(c => {
+      if(c.id !== choreId) return c;
+      return {...c, onToday: false, section: c.section || 'priority'};
+    });
     renderAll();
     scheduleSave();
   }
