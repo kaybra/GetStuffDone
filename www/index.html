@@ -118,6 +118,35 @@
     text-shadow: 0 0 12px rgba(143,242,255,0.4);
   }
 
+  /* Small legend teaching the app's swipe convention (right = add to
+     Today, left = remove — see attachSwipe() in the script below), shown
+     under the page title on both Today and All Tasks so it reads as one
+     consistent, app-wide gesture rather than a per-page quirk. It's
+     purely informational — neither chip is itself tappable or swipeable
+     — so it's styled as a pair of small pill badges (matching the app's
+     other status chips like .today-badge and .compact-tally) rather
+     than looking like another control to press. */
+  .swipe-legend{
+    display:flex;
+    gap:8px;
+    margin: 2px 0 18px;
+    flex-wrap: wrap;
+  }
+  .swipe-legend-chip{
+    display:inline-flex;
+    align-items:center;
+    gap:5px;
+    font-family:'Work Sans', sans-serif;
+    font-weight:600;
+    font-size: 0.7rem;
+    padding: 5px 10px;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+  .swipe-legend-icon{ width:13px; height:13px; flex:0 0 auto; }
+  .swipe-legend-add{ background: linear-gradient(120deg, var(--cyan), var(--mint)); color:#142a2a; }
+  .swipe-legend-remove{ background: linear-gradient(120deg, var(--pink), var(--lav)); color:#241147; }
+
   .header-row{
     display:flex;
     align-items:flex-start;
@@ -193,6 +222,25 @@
     overflow: hidden;
     overflow-anchor: none;
     transition: box-shadow 0.15s ease-out;
+    /* Forces this sticky element onto its own GPU compositing layer,
+       independent of the scrolling list underneath it. Reported bug:
+       on-device (iPad), momentarily scrolling past this bar while it
+       collapses to/from `.compact` could show list content (e.g. a
+       multi-step task's own "Add a step" row) ghosted through/behind
+       the bar for a frame — classic symptom of a `position: sticky`
+       element repainting a frame behind the actual scroll position on
+       WebKit, which promoting it to its own layer (rather than letting
+       the browser composite it together with the content scrolling
+       underneath) is the standard fix for. This doesn't change layout,
+       sizing or behavior — a pure rendering hint — so it's safe to pair
+       with the extensive existing scroll-fighting mitigations above.
+       Unverified on real hardware as of this change (no device in this
+       environment) — worth confirming on the next TestFlight build that
+       the ghosting is actually gone during a fast scroll past the
+       compact-state threshold. */
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
+    will-change: transform;
   }
   .picker.compact{
     padding: 12px 16px;
@@ -479,6 +527,22 @@
     transition: opacity 0.15s ease;
   }
   .item.done .check svg, .step.done .check svg{ opacity:1; }
+
+  /* Templates page only: a solid-filled, non-interactive stand-in for
+     the normal outline `.check` circle. Templates can't be checked or
+     unchecked at all (there's no "done" for a pattern to be), so this
+     is deliberately never a <button> and never gets a click handler —
+     the filled color itself is the only signal, telling a tapping
+     finger "this one won't do anything" before it even tries. Uses
+     lavender rather than the mint used for a genuinely completed item
+     elsewhere, so a filled template circle is never mistaken for "this
+     one's already done". */
+  .check-locked{
+    cursor: default;
+    background: var(--lav);
+    border-color: var(--lav);
+    box-shadow: 0 0 10px rgba(201,175,255,0.45);
+  }
 
   .text{
     flex:1;
@@ -989,15 +1053,122 @@
   .tab-btn.active svg{ filter: drop-shadow(0 0 6px rgba(255,158,205,0.5)); }
 
   /* All Tasks page: task sections (Priority / In the next week / In the
-     next month), each its own heading + list + inline add buttons. */
-  .task-section{ margin-bottom: 26px; }
+     next month), each its own collapsible header + list + inline add
+     buttons. Extra bottom margin (vs. the old 26px) is deliberate —
+     enough breathing room that each section reads as its own block
+     rather than the list just running on into the next heading. A
+     bottom border on all but the last section reinforces that same
+     separation for anyone who has :last-child sections adjacent (e.g.
+     after a section collapses and the list shortens). */
+  .task-section{ margin-bottom: 44px; }
+  .task-section:last-of-type{ margin-bottom: 26px; }
+
+  /* The header is a real <button> (full width, no default button chrome)
+     so the whole row — not just the text — is a tap target for
+     collapsing/expanding, which matters most on a touchscreen. */
+  .section-header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap: 10px;
+    width:100%;
+    background:none;
+    border:none;
+    border-bottom: 1px solid rgba(255,255,255,0.09);
+    padding: 4px 2px 12px;
+    margin: 4px 0 14px;
+    cursor:pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .section-header:hover .section-title{ color: var(--ink); }
+
+  /* Bolder, larger, uppercase-with-tracking and a subtle neon glow — the
+     same visual language as the app's own <h1> (text-shadow glow, Space
+     Grotesk) — so these read as clear section dividers rather than
+     blending into the chore text below them. */
   .section-title{
     font-family:'Space Grotesk', sans-serif;
-    font-weight:600;
-    font-size: 1rem;
+    font-weight:700;
+    font-size: 1.05rem;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
     color: var(--lav);
-    margin: 4px 2px 10px;
+    text-shadow: 0 0 14px rgba(201,175,255,0.35);
+    margin: 0;
+    transition: color 0.15s ease;
   }
+  .section-chevron{
+    flex: 0 0 auto;
+    width: 20px;
+    height: 20px;
+    color: var(--ink-dim);
+    transition: transform 0.18s ease, color 0.15s ease;
+  }
+  .section-header:hover .section-chevron{ color: var(--cyan); }
+
+  /* Collapsed state: the chevron rotates to point right (collapsed = "closed")
+     and the body (list + add buttons) is removed from layout entirely —
+     display:none rather than an animated height, matching how every other
+     show/hide toggle in this app works (e.g. the sheets, hidden completed
+     rows) rather than introducing a one-off transition style. */
+  .task-section.collapsed .section-chevron{ transform: rotate(-90deg); }
+  .task-section.collapsed .section-header{ border-bottom-color: rgba(255,255,255,0.03); }
+  .task-section.collapsed .section-body{ display: none; }
+
+  /* Templates page only: a group's name is fixed once created (see the
+     project decision to skip inline rename — a group header containing
+     BOTH a collapse-toggle button and an editable-on-click name would
+     mean two independent click handlers on nested elements fighting over
+     the same tap), but it still needs its own delete control. Since a
+     <button> can't safely contain another interactive/tappable target,
+     the delete button sits OUTSIDE .section-header as a flex sibling in
+     this wrapping row, rather than inside it — the header itself still
+     handles the collapse toggle exactly like All Tasks' plain section
+     headers. The divider/spacing that normally lives on .section-header
+     itself moves onto this row instead, so it visually spans the full
+     width including the delete button, not just the header's own part. */
+  .section-header-row{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    border-bottom: 1px solid rgba(255,255,255,0.09);
+    padding: 4px 2px 12px;
+    margin: 4px 0 14px;
+  }
+  .section-header-row .section-header{
+    flex:1;
+    min-width:0;
+    border-bottom:none;
+    padding:0;
+    margin:0;
+  }
+  .template-group-del{
+    flex:0 0 auto;
+    font-size: 1.3rem;
+  }
+
+  /* Standalone "+ Add group" button at the bottom of the Templates page
+     — same dashed-outline visual language as .section-add-btn, just
+     full-width and on its own rather than paired in a .section-add-row,
+     since creating a group is a page-level action, not scoped to one
+     already-existing group. */
+  .add-group-btn{
+    display:block;
+    width:100%;
+    background: rgba(255,255,255,0.05);
+    border: 1px dashed rgba(255,255,255,0.22);
+    color: var(--ink-dim);
+    border-radius: 12px;
+    padding: 14px 10px;
+    font-family:'Work Sans', sans-serif;
+    font-size: 0.85rem;
+    font-weight:700;
+    cursor:pointer;
+    transition: border-color 0.15s ease, color 0.15s ease;
+    margin-top: 6px;
+  }
+  .add-group-btn:hover{ border-color: var(--cyan); color: var(--cyan); }
+
   .section-add-row{
     display:flex;
     gap: 8px;
@@ -1088,7 +1259,7 @@
     <div class="splash-inner">
       <img id="splashGif" alt="A little cartoon cat celebrating" />
       <h2>Well done!</h2>
-      <p>Every chore is ticked off.</p>
+      <p>Every task is ticked off.</p>
       <button type="button" id="splashClose">Back to list</button>
     </div>
   </div>
@@ -1119,10 +1290,14 @@
     <div class="header-row">
       <div>
         <h1>Today</h1>
-        <p class="subtitle">Chore App</p>
+        <p class="subtitle">Task App</p>
       </div>
       <div class="tally-badge" id="tally">&hellip;</div>
     </div>
+    <p class="swipe-legend">
+      <span class="swipe-legend-chip swipe-legend-add"><svg class="swipe-legend-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>Swipe right to add</span>
+      <span class="swipe-legend-chip swipe-legend-remove">Swipe left to remove<svg class="swipe-legend-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 12H6M11 6l-6 6 6 6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+    </p>
   </header>
 
   <div class="picker" id="picker">
@@ -1148,14 +1323,14 @@
       <span class="parent" id="pickParent" hidden></span>
       <span class="name" id="pickName"></span>
     </div>
-    <div class="pick-empty" id="pickEmpty" hidden>Nothing left to pick &mdash; add a chore or clear some ticks.</div>
+    <div class="pick-empty" id="pickEmpty" hidden>Nothing left to pick &mdash; add a task or clear some ticks.</div>
   </div>
 
   <div class="list" id="list"></div>
 
   <p class="status-line" id="statusLine"></p>
 
-  <p class="version-tag">v1.1.1</p>
+  <p class="version-tag">v1.2.0</p>
   <p class="credit-line">Inspired by a video by Simone Giertz,<br>please check out <a class="credit-link" href="https://www.youtube.com/@simonegiertz" target="_blank" rel="noopener noreferrer">her channel</a></p>
   <p class="support-line">This app is free and ad-free, but you can<br><a class="credit-link" href="https://ko-fi.com/getstuffdone" target="_blank" rel="noopener noreferrer">buy me a coffee here</a></p>
   </div>
@@ -1171,6 +1346,10 @@
   <div class="page" id="pageAllTasks" hidden>
     <header>
       <h1>All Tasks</h1>
+      <p class="swipe-legend">
+        <span class="swipe-legend-chip swipe-legend-add"><svg class="swipe-legend-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>Swipe right to add</span>
+        <span class="swipe-legend-chip swipe-legend-remove">Swipe left to remove<svg class="swipe-legend-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 12H6M11 6l-6 6 6 6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+      </p>
     </header>
 
     <div class="picker">
@@ -1187,36 +1366,76 @@
     </div>
 
     <section class="task-section" data-section="priority">
-      <h2 class="section-title">Priority</h2>
-      <div class="list" id="listPriority"></div>
-      <div class="section-add-row">
-        <button type="button" class="section-add-btn" data-section="priority" data-kind="simple">+ Add chore</button>
-        <button type="button" class="section-add-btn" data-section="priority" data-kind="multi">+ Add multi-step chore</button>
+      <button type="button" class="section-header" data-section="priority" aria-expanded="true" aria-controls="bodyPriority">
+        <h2 class="section-title">Priority</h2>
+        <svg class="section-chevron" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="section-body" id="bodyPriority">
+        <div class="list" id="listPriority"></div>
+        <div class="section-add-row">
+          <button type="button" class="section-add-btn" data-section="priority" data-kind="simple">+ Add task</button>
+          <button type="button" class="section-add-btn" data-section="priority" data-kind="multi">+ Add multi-step task</button>
+        </div>
       </div>
     </section>
 
     <section class="task-section" data-section="week">
-      <h2 class="section-title">In the next week</h2>
-      <div class="list" id="listWeek"></div>
-      <div class="section-add-row">
-        <button type="button" class="section-add-btn" data-section="week" data-kind="simple">+ Add chore</button>
-        <button type="button" class="section-add-btn" data-section="week" data-kind="multi">+ Add multi-step chore</button>
+      <button type="button" class="section-header" data-section="week" aria-expanded="true" aria-controls="bodyWeek">
+        <h2 class="section-title">In the next week</h2>
+        <svg class="section-chevron" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="section-body" id="bodyWeek">
+        <div class="list" id="listWeek"></div>
+        <div class="section-add-row">
+          <button type="button" class="section-add-btn" data-section="week" data-kind="simple">+ Add task</button>
+          <button type="button" class="section-add-btn" data-section="week" data-kind="multi">+ Add multi-step task</button>
+        </div>
       </div>
     </section>
 
     <section class="task-section" data-section="month">
-      <h2 class="section-title">In the next month</h2>
-      <div class="list" id="listMonth"></div>
-      <div class="section-add-row">
-        <button type="button" class="section-add-btn" data-section="month" data-kind="simple">+ Add chore</button>
-        <button type="button" class="section-add-btn" data-section="month" data-kind="multi">+ Add multi-step chore</button>
+      <button type="button" class="section-header" data-section="month" aria-expanded="true" aria-controls="bodyMonth">
+        <h2 class="section-title">In the next month</h2>
+        <svg class="section-chevron" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="section-body" id="bodyMonth">
+        <div class="list" id="listMonth"></div>
+        <div class="section-add-row">
+          <button type="button" class="section-add-btn" data-section="month" data-kind="simple">+ Add task</button>
+          <button type="button" class="section-add-btn" data-section="month" data-kind="multi">+ Add multi-step task</button>
+        </div>
       </div>
     </section>
   </div>
 
+  <!-- Templates: reusable task sets, organized into user-created groups
+       (e.g. "Morning routine", "Weekly reset"). Deliberately its own,
+       independent data store (see `templateGroups`/TEMPLATES_STORAGE_KEY
+       in the script below) — a template task is never the same object
+       as a Today/All Tasks chore, only ever a pattern one gets copied
+       from. Swiping a template right onto Today creates a brand new,
+       fully independent copy (fresh id, fresh step ids, done:false);
+       nothing about the template itself changes, and completing or
+       deleting that copy later on Today never touches the template it
+       came from. Left-swipe does nothing here (rubber-banded, same as
+       any other non-committable direction elsewhere in the app) — a
+       template has no "on Today" state to remove itself from, only
+       "add a copy", so only one direction was ever going to make sense.
+       Templates also can't be checked/unchecked (see the filled,
+       non-interactive `.check-locked` circle in renderTemplateSimpleRow/
+       renderTemplateMultiCard below) — a template is a pattern, not a
+       thing to complete. -->
   <div class="page" id="pageTemplates" hidden>
-    <header><h1>Templates</h1></header>
-    <p class="empty-state">Templates are coming soon — reusable chore sets you'll be able to drop into All Tasks in one tap.</p>
+    <header>
+      <h1>Templates</h1>
+      <p class="swipe-legend">
+        <span class="swipe-legend-chip swipe-legend-add"><svg class="swipe-legend-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>Swipe right to add to Today</span>
+      </p>
+    </header>
+
+    <div id="templateGroups"></div>
+
+    <button type="button" class="add-group-btn" id="addGroupBtn">+ Add group</button>
   </div>
 
   <div class="page" id="pageSettings" hidden>
@@ -1233,10 +1452,10 @@
      adding happens via each section's own "+ Add" buttons instead, since
      a global add button there wouldn't know which section to file into. -->
 <div class="fab-layer" id="fabLayer">
-  <button type="button" class="fab-secondary" id="fabMultiBtn" aria-label="Add a multi-step chore">
+  <button type="button" class="fab-secondary" id="fabMultiBtn" aria-label="Add a multi-step task">
     <svg viewBox="0 0 24 24" fill="none"><path d="M3 6.5h9M3 12h9M3 17.5h5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M18 8v10M13 13h10" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
   </button>
-  <button type="button" class="fab" id="fabBtn" aria-label="Add a chore">
+  <button type="button" class="fab" id="fabBtn" aria-label="Add a task">
     <svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
   </button>
 </div>
@@ -1267,22 +1486,31 @@
 
 <div class="sheet" id="addSheet" hidden>
   <div class="sheet-handle"></div>
-  <h3>Add a chore</h3>
+  <h3>Add a task</h3>
   <div class="add-form" id="addForm">
-    <input id="addInput" type="text" placeholder="Add a chore&hellip;" maxlength="80" autocomplete="off">
+    <input id="addInput" type="text" placeholder="Add a task&hellip;" maxlength="80" autocomplete="off">
     <button type="button" id="addBtn">Add</button>
   </div>
 </div>
 
 <div class="sheet" id="multiSheet" hidden>
   <div class="sheet-handle"></div>
-  <h3>Add a multi-step chore</h3>
-  <input id="multiTitle" type="text" placeholder="Chore name (e.g. Deep clean kitchen)" maxlength="80">
+  <h3>Add a multi-step task</h3>
+  <input id="multiTitle" type="text" placeholder="Task name (e.g. Deep clean kitchen)" maxlength="80">
   <textarea id="multiSteps" placeholder="One step per line, in order&#10;Wipe counters&#10;Do the dishes&#10;Mop floor&#10;Take out trash"></textarea>
-  <p class="hint">Only the first unfinished step will ever come up in the random pick.</p>
+  <p class="hint" id="multiHint">Only the first unfinished step will ever come up in the random pick.</p>
   <div class="row">
     <button type="button" class="cancel" id="multiCancel">Cancel</button>
-    <button type="button" class="save" id="multiSave">Add chore</button>
+    <button type="button" class="save" id="multiSave">Add task</button>
+  </div>
+</div>
+
+<div class="sheet" id="groupSheet" hidden>
+  <div class="sheet-handle"></div>
+  <h3>New group</h3>
+  <div class="add-form" id="groupForm">
+    <input id="groupNameInput" type="text" placeholder="Group name (e.g. Morning routine)" maxlength="60" autocomplete="off">
+    <button type="button" id="groupSaveBtn">Add</button>
   </div>
 </div>
 
@@ -1297,6 +1525,10 @@
   // native app directly, so this is the fallback way to see what broke.
   try{
   const STORAGE_KEY = 'chores:list';
+  // Templates live under their own storage key, entirely separate from
+  // `chores:list` — see the long comment on `templateGroups` near
+  // `chores` below for why they're never the same array.
+  const TEMPLATES_STORAGE_KEY = 'templates:groups';
   const list = document.getElementById('list');
   const tally = document.getElementById('tally');
   const compactTally = document.getElementById('compactTally');
@@ -1361,6 +1593,9 @@
   });
   const multiTitle = document.getElementById('multiTitle');
   const multiSteps = document.getElementById('multiSteps');
+  const multiHint = document.getElementById('multiHint');
+  const DEFAULT_MULTI_HINT = 'Only the first unfinished step will ever come up in the random pick.';
+  const TEMPLATE_MULTI_HINT = "This is a template — it only becomes a real task (with its own progress) once you swipe a copy of it onto Today; editing or deleting it here never touches copies you've already added.";
   const multiSave = document.getElementById('multiSave');
   const multiCancel = document.getElementById('multiCancel');
   const fabBtn = document.getElementById('fabBtn');
@@ -1368,6 +1603,9 @@
   const sheetBackdrop = document.getElementById('sheetBackdrop');
   const addSheet = document.getElementById('addSheet');
   const multiSheet = document.getElementById('multiSheet');
+  const groupSheet = document.getElementById('groupSheet');
+  const groupNameInput = document.getElementById('groupNameInput');
+  const groupSaveBtn = document.getElementById('groupSaveBtn');
 
   // --- Tab bar / multi-page refs -------------------------------------
   const pageToday = document.getElementById('pageToday');
@@ -1388,7 +1626,22 @@
   const allTasksFilterBtnLabel = allTasksFilterBtn.querySelector('.filter-btn-label');
   const allTasksFilterBtnIcon = document.getElementById('allTasksFilterBtnIcon');
 
+  // --- Templates refs ---------------------------------------------------
+  const templateGroupsContainer = document.getElementById('templateGroups');
+  const addGroupBtn = document.getElementById('addGroupBtn');
+
   let chores = [];
+  // Templates: an array of groups, each `{ id, name, items }`, where an
+  // item is either `{ id, text }` (simple) or `{ id, text, steps }`
+  // (multi-step, each step just `{ id, text }` — no `done`, since a
+  // template step is never checked off). Deliberately its own array,
+  // never merged into `chores` and never given a `section`/`onToday` of
+  // its own: a template is a pattern to copy FROM, not a task with a
+  // completion state or a place on All Tasks. Swiping one onto Today
+  // (see addTemplateItemToToday()) pushes a brand new, independently-id'd
+  // object onto `chores` — the two arrays never reference the same
+  // object, so nothing done to one can ever affect the other.
+  let templateGroups = [];
   let saveTimer = null;
   let previousRemaining = null;
   // Same idea as previousRemaining above, but scoped to every chore
@@ -1416,6 +1669,30 @@
   // whichever button opened the sheet (the Today FAB vs. a section's
   // own "+ Add" button).
   let sheetTargetSection = null;
+
+  // Templates: which group (if any) a task added through the currently-
+  // open add/multi-add sheet should be filed into. null means the sheet
+  // was opened from the Today FAB or an All Tasks section, i.e. this add
+  // is NOT a template add at all — addSimpleChore()/multiSave() check
+  // this FIRST (before sheetTargetSection) to decide whether to push
+  // into `templateGroups` instead of `chores`. Every button that opens
+  // either sheet sets both this and sheetTargetSection explicitly (never
+  // relying on a previous value), so there's no path where a stale
+  // template target leaks into an ordinary Today/All Tasks add or vice
+  // versa.
+  let sheetTargetTemplateGroupId = null;
+
+  // Templates page collapse state — same session-only, DOM-adjacent
+  // pattern as hideCompletedToday/hideCompletedAllTasks above, EXCEPT it
+  // can't just be a class left sitting on a static DOM node the way All
+  // Tasks' three fixed sections work: template groups are created and
+  // deleted at runtime, so renderTemplates() has to rebuild the whole
+  // #templateGroups container from scratch on every change (a new task,
+  // a new group, a rename). Tracking which group ids are collapsed here
+  // and re-applying it on every render is what makes collapse state
+  // survive that rebuild instead of resetting to "all expanded" the
+  // moment any group's contents change.
+  let collapsedTemplateGroups = new Set();
 
   // Keeps the bottom sheets above the on-screen keyboard. See the long
   // comment on `.sheet` in the CSS above for why this is needed: without
@@ -1520,9 +1797,12 @@
 
   // Today's own FAB always adds straight onto Today (the sheet's
   // original behavior, unchanged) — so it explicitly clears any section
-  // that might have been left over from a previous All Tasks add.
-  fabBtn.addEventListener('click', () => { sheetTargetSection = null; openSheet(addSheet, addInput); });
-  fabMultiBtn.addEventListener('click', () => { sheetTargetSection = null; openSheet(multiSheet, multiTitle); });
+  // AND any template group that might have been left over from a
+  // previous All Tasks or Templates add (every opener of either sheet
+  // sets both target variables explicitly, precisely so no stale value
+  // from a different page's "+ Add" button can ever leak into this one).
+  fabBtn.addEventListener('click', () => { sheetTargetSection = null; sheetTargetTemplateGroupId = null; openSheet(addSheet, addInput); });
+  fabMultiBtn.addEventListener('click', () => { sheetTargetSection = null; sheetTargetTemplateGroupId = null; multiHint.textContent = DEFAULT_MULTI_HINT; openSheet(multiSheet, multiTitle); });
   sheetBackdrop.addEventListener('click', () => closeSheet());
   document.addEventListener('keydown', (e) => {
     if(e.key === 'Escape' && openSheetEl) closeSheet();
@@ -1531,15 +1811,61 @@
   // All Tasks: each section's own "+ Add chore" / "+ Add multi-step
   // chore" buttons open the same two sheets used by Today's FAB, but
   // first record which section the new chore should be filed into —
-  // read back by addSimpleChore()/multiSave() below.
+  // read back by addSimpleChore()/multiSave() below. (Templates' own
+  // per-group "+ Add" buttons are wired individually inside
+  // renderTemplateGroup() instead, since those buttons are created and
+  // destroyed at runtime rather than existing in the static markup this
+  // querySelectorAll runs over once at startup.)
   document.querySelectorAll('.section-add-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
       sheetTargetSection = btn.dataset.section;
+      sheetTargetTemplateGroupId = null;
       if(btn.dataset.kind === 'multi'){
+        multiHint.textContent = DEFAULT_MULTI_HINT;
         openSheet(multiSheet, multiTitle);
       } else {
         openSheet(addSheet, addInput);
       }
+    });
+  });
+
+  // Templates: "+ Add group" opens a small one-field sheet (reusing the
+  // same sheet/backdrop machinery as everything else) to name a new
+  // group. addTemplateGroup() itself just pushes the group; this is the
+  // UI glue around it (validate non-empty, clear the input, re-render,
+  // save, close).
+  function submitNewTemplateGroup(){
+    const name = groupNameInput.value.trim();
+    if(!name) return;
+    addTemplateGroup(name);
+    groupNameInput.value = '';
+    renderAll();
+    scheduleSave();
+    closeSheet();
+  }
+  addGroupBtn.addEventListener('click', () => openSheet(groupSheet, groupNameInput));
+  groupSaveBtn.addEventListener('click', submitNewTemplateGroup);
+  groupNameInput.addEventListener('keydown', (e) => {
+    if(e.key === 'Enter'){ e.preventDefault(); submitNewTemplateGroup(); }
+  });
+
+  // All Tasks: each section (Priority / In the next week / In the next
+  // month) can be collapsed independently by tapping its header. The
+  // header and its parent .task-section are static markup — unlike the
+  // lists inside them, renderAllTasks() never rebuilds or replaces these
+  // elements — so a plain class toggle here is all that's needed; the
+  // collapsed/expanded state just sits on the DOM node and survives
+  // every re-render (new chore added, filter toggled, etc.) on its own,
+  // the same way scroll position or focus would. It does NOT persist
+  // across an app restart (nothing here writes to localStorage) — same
+  // as hideCompletedAllTasks/hideCompletedToday just above, which are
+  // also session-only, not saved state.
+  document.querySelectorAll('.section-header').forEach((header) => {
+    header.addEventListener('click', () => {
+      const section = header.closest('.task-section');
+      if(!section) return;
+      const collapsed = section.classList.toggle('collapsed');
+      header.setAttribute('aria-expanded', String(!collapsed));
     });
   });
 
@@ -1671,6 +1997,25 @@
     return { onToday: true, section: null, ...c };
   }
 
+  // Defensive normalization for template data loaded from localStorage —
+  // mirrors normalizeChore's job of tolerating older/partial saved shapes
+  // without throwing, though there's no "earlier version" of templates to
+  // migrate from yet (this is the first release of the feature).
+  function normalizeTemplateGroup(g){
+    return {
+      id: g && g.id ? g.id : uid(),
+      name: (g && typeof g.name === 'string' && g.name.trim()) ? g.name : 'Untitled group',
+      items: (g && Array.isArray(g.items)) ? g.items.map(normalizeTemplateItem) : []
+    };
+  }
+  function normalizeTemplateItem(it){
+    const base = { id: it && it.id ? it.id : uid(), text: (it && it.text) || '' };
+    if(it && Array.isArray(it.steps)){
+      base.steps = it.steps.map(s => ({ id: s && s.id ? s.id : uid(), text: (s && s.text) || '' }));
+    }
+    return base;
+  }
+
   function load(){
     try{
       const raw = localStorage.getItem(STORAGE_KEY);
@@ -1679,12 +2024,22 @@
       chores = defaultChores;
     }
     chores = chores.map(normalizeChore);
+
+    try{
+      const rawTemplates = localStorage.getItem(TEMPLATES_STORAGE_KEY);
+      templateGroups = rawTemplates ? JSON.parse(rawTemplates) : [];
+    }catch(e){
+      templateGroups = [];
+    }
+    templateGroups = templateGroups.map(normalizeTemplateGroup);
+
     renderAll();
   }
 
   function persist(){
     try{
       localStorage.setItem(STORAGE_KEY, JSON.stringify(chores));
+      localStorage.setItem(TEMPLATES_STORAGE_KEY, JSON.stringify(templateGroups));
       statusLine.textContent = '';
     }catch(e){
       statusLine.textContent = 'Could not save — changes may not persist.';
@@ -1748,6 +2103,7 @@
   function renderAll(){
     renderToday();
     renderAllTasks();
+    renderTemplates();
   }
 
   // Shared list-building logic used by both Today and every All Tasks
@@ -1786,7 +2142,7 @@
     const todayChores = chores.filter(c => c.onToday);
     buildListInto(
       list, todayChores, hideCompletedToday, 'today',
-      'No chores yet. Add one below, or swipe one in from All Tasks.',
+      'No tasks yet. Add one below, or swipe one in from All Tasks.',
       'Everything visible is done — nice work.'
     );
 
@@ -1891,7 +2247,7 @@
 
     const del = document.createElement('button');
     del.className = 'del';
-    del.setAttribute('aria-label', 'Delete chore');
+    del.setAttribute('aria-label', 'Delete task');
     del.textContent = '×';
     del.addEventListener('click', () => remove(chore.id));
 
@@ -1928,7 +2284,7 @@
 
     const del = document.createElement('button');
     del.className = 'del';
-    del.setAttribute('aria-label', 'Delete chore');
+    del.setAttribute('aria-label', 'Delete task');
     del.textContent = '×';
     del.addEventListener('click', () => remove(chore.id));
 
@@ -2014,25 +2370,425 @@
     return card;
   }
 
+  // ---------------------------------------------------------------------
+  // Templates: rendering + data mutation. Deliberately separate render
+  // functions from renderSimpleRow/renderMultiCard above rather than
+  // adding more pageContext branches to those — a template item isn't a
+  // chore (no `done`, no `onToday`, no `section`), so trying to share one
+  // set of render functions across both shapes would mean scattering
+  // `pageContext === 'templates'` checks through code that otherwise
+  // assumes a chore's shape throughout. Keeping them separate means each
+  // stays simple and obviously correct for the one data shape it renders.
+  // ---------------------------------------------------------------------
+
+  function renderTemplateSimpleRow(item, groupId){
+    const row = document.createElement('div');
+    row.className = 'item';
+
+    // A plain, non-interactive filled circle — no <button>, no click
+    // listener, no checkmark icon. The filled color itself is the only
+    // signal a template row gives for "you can't check this off here".
+    const check = document.createElement('span');
+    check.className = 'check check-locked';
+    check.setAttribute('aria-hidden', 'true');
+    row.appendChild(check);
+
+    const text = document.createElement('span');
+    text.className = 'text';
+    text.textContent = item.text;
+    makeEditable(text, item.text, (val) => renameTemplateItem(groupId, item.id, val));
+    row.appendChild(text);
+
+    const del = document.createElement('button');
+    del.className = 'del';
+    del.setAttribute('aria-label', 'Delete template task');
+    del.textContent = '×';
+    del.addEventListener('click', () => removeTemplateItem(groupId, item.id));
+    row.appendChild(del);
+
+    return row;
+  }
+
+  function renderTemplateMultiCard(item, groupId){
+    const card = document.createElement('div');
+    card.className = 'item multi';
+
+    const head = document.createElement('div');
+    head.className = 'multi-head';
+
+    const title = document.createElement('span');
+    title.className = 'text';
+    title.textContent = item.text;
+    makeEditable(title, item.text, (val) => renameTemplateItem(groupId, item.id, val));
+    head.appendChild(title);
+
+    // A step count rather than the "x/y done" progress renderMultiCard
+    // shows — there's no "done" for a template step, so a done-count
+    // would only ever read "0/N" and imply a completion state that
+    // doesn't exist here.
+    const count = document.createElement('span');
+    count.className = 'multi-progress';
+    count.textContent = item.steps.length + (item.steps.length === 1 ? ' step' : ' steps');
+    head.appendChild(count);
+
+    const del = document.createElement('button');
+    del.className = 'del';
+    del.setAttribute('aria-label', 'Delete template task');
+    del.textContent = '×';
+    del.addEventListener('click', () => removeTemplateItem(groupId, item.id));
+    head.appendChild(del);
+
+    card.appendChild(head);
+
+    const stepsWrap = document.createElement('div');
+    stepsWrap.className = 'steps';
+
+    item.steps.forEach(step => {
+      const row = document.createElement('div');
+      row.className = 'step';
+
+      const check = document.createElement('span');
+      check.className = 'check check-locked';
+      check.setAttribute('aria-hidden', 'true');
+      row.appendChild(check);
+
+      const text = document.createElement('span');
+      text.className = 'text';
+      text.textContent = step.text;
+      makeEditable(text, step.text, (val) => renameTemplateStep(groupId, item.id, step.id, val));
+      row.appendChild(text);
+
+      const stepDel = document.createElement('button');
+      stepDel.className = 'del step-del';
+      stepDel.setAttribute('aria-label', 'Delete step');
+      stepDel.textContent = '×';
+      stepDel.addEventListener('click', () => removeTemplateStep(groupId, item.id, step.id));
+      row.appendChild(stepDel);
+
+      stepsWrap.appendChild(row);
+    });
+
+    // Authoring a multi-step template still needs to be able to add
+    // steps to it (this is how the template gets built up in the first
+    // place) — only the CHECKING of steps is disabled, not editing them.
+    const addStepRow = document.createElement('div');
+    addStepRow.className = 'add-step-row';
+    const addStepInput = document.createElement('input');
+    addStepInput.type = 'text';
+    addStepInput.placeholder = 'Add a step…';
+    addStepInput.maxLength = 100;
+    const addStepBtn = document.createElement('button');
+    addStepBtn.type = 'button';
+    addStepBtn.textContent = '+';
+    addStepBtn.setAttribute('aria-label', 'Add step');
+
+    function submitStep(){
+      const val = addStepInput.value.trim();
+      if(!val) return;
+      addTemplateStep(groupId, item.id, val);
+    }
+    addStepBtn.addEventListener('click', submitStep);
+    addStepInput.addEventListener('keydown', (e) => {
+      if(e.key === 'Enter'){ e.preventDefault(); submitStep(); }
+    });
+
+    addStepRow.appendChild(addStepInput);
+    addStepRow.appendChild(addStepBtn);
+    stepsWrap.appendChild(addStepRow);
+
+    card.appendChild(stepsWrap);
+    return card;
+  }
+
+  // Swipe handling for a template row — a deliberately simpler cousin of
+  // attachSwipe() below. There's no "which direction is committable"
+  // decision to make here the way a chore's onToday flag drives it:
+  // right (add a copy to Today) is ALWAYS the only real action, so left
+  // is unconditionally rubber-banded and can never commit, full stop.
+  // Committing here never removes or changes the template row itself —
+  // it only ever pushes a brand new object onto `chores` (see
+  // addTemplateItemToToday) — so a successful swipe just settles the row
+  // back to rest, the same as All Tasks' "add" outcome, rather than
+  // sliding away the way Today's "remove" swipe does.
+  function attachTemplateSwipe(rowEl, item, groupId){
+    const wrap = document.createElement('div');
+    wrap.className = 'swipe-wrap';
+    const bg = document.createElement('div');
+    bg.className = 'swipe-bg swipe-bg-add';
+    bg.textContent = 'Add to Today';
+    wrap.appendChild(bg);
+    rowEl.classList.add('swipe-fg');
+    wrap.appendChild(rowEl);
+
+    const THRESHOLD = 88;
+    const RUBBER_MAX = 36;
+    let dragging = false;
+    let decided = false;
+    let isHorizontal = false;
+    let startX = 0;
+    let startY = 0;
+    let dx = 0;
+    let pointerId = null;
+
+    function rubberBand(rawDx){
+      const sign = rawDx < 0 ? -1 : 1;
+      const abs = Math.abs(rawDx);
+      return sign * (RUBBER_MAX * abs) / (RUBBER_MAX + abs);
+    }
+    rowEl.style.touchAction = 'pan-y';
+
+    function resetRow(){
+      rowEl.style.transition = 'transform 0.18s ease-out';
+      rowEl.style.transform = 'translateX(0px)';
+      bg.style.opacity = '0';
+    }
+
+    rowEl.addEventListener('pointerdown', (e) => {
+      if(e.pointerType === 'mouse' && e.button !== 0) return;
+      dragging = true;
+      decided = false;
+      isHorizontal = false;
+      dx = 0;
+      startX = e.clientX;
+      startY = e.clientY;
+      pointerId = e.pointerId;
+      rowEl.style.transition = 'none';
+    });
+
+    rowEl.addEventListener('pointermove', (e) => {
+      if(!dragging) return;
+      const rawDx = e.clientX - startX;
+      const rawDy = e.clientY - startY;
+      if(!decided){
+        if(Math.abs(rawDx) < 8 && Math.abs(rawDy) < 8) return;
+        decided = true;
+        isHorizontal = Math.abs(rawDx) > Math.abs(rawDy);
+        if(!isHorizontal){ dragging = false; return; }
+        try{ rowEl.setPointerCapture(pointerId); }catch(err){ /* not supported — drag still works without capture */ }
+      }
+      if(!isHorizontal) return;
+      dx = rawDx;
+      const isRight = dx > 0;
+      rowEl.style.transform = 'translateX(' + (isRight ? dx : rubberBand(dx)) + 'px)';
+      bg.style.opacity = isRight ? String(Math.min(1, Math.abs(dx) / THRESHOLD)) : '0';
+      if(e.cancelable) e.preventDefault();
+    });
+
+    function endDrag(){
+      if(!dragging) return;
+      dragging = false;
+      const shouldCommit = isHorizontal && dx > THRESHOLD;
+      if(!shouldCommit){
+        resetRow();
+        return;
+      }
+      resetRow();
+      addTemplateItemToToday(groupId, item.id);
+    }
+    rowEl.addEventListener('pointerup', endDrag);
+    rowEl.addEventListener('pointercancel', endDrag);
+
+    return wrap;
+  }
+
+  function renderTemplateGroup(group){
+    const section = document.createElement('section');
+    section.className = 'task-section template-section';
+    const isCollapsed = collapsedTemplateGroups.has(group.id);
+    if(isCollapsed) section.classList.add('collapsed');
+
+    const headerRow = document.createElement('div');
+    headerRow.className = 'section-header-row';
+
+    const header = document.createElement('button');
+    header.type = 'button';
+    header.className = 'section-header';
+    header.setAttribute('aria-expanded', String(!isCollapsed));
+
+    const title = document.createElement('h2');
+    title.className = 'section-title';
+    title.textContent = group.name;
+    header.appendChild(title);
+    header.insertAdjacentHTML('beforeend', '<svg class="section-chevron" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>');
+    header.addEventListener('click', () => {
+      const collapsed = section.classList.toggle('collapsed');
+      header.setAttribute('aria-expanded', String(!collapsed));
+      if(collapsed){ collapsedTemplateGroups.add(group.id); } else { collapsedTemplateGroups.delete(group.id); }
+    });
+
+    const delGroupBtn = document.createElement('button');
+    delGroupBtn.type = 'button';
+    delGroupBtn.className = 'del template-group-del';
+    delGroupBtn.setAttribute('aria-label', 'Delete group ' + group.name);
+    delGroupBtn.textContent = '×';
+    delGroupBtn.addEventListener('click', () => removeTemplateGroup(group.id));
+
+    headerRow.appendChild(header);
+    headerRow.appendChild(delGroupBtn);
+    section.appendChild(headerRow);
+
+    const body = document.createElement('div');
+    body.className = 'section-body';
+
+    const listEl = document.createElement('div');
+    listEl.className = 'list';
+    if(group.items.length === 0){
+      const empty = document.createElement('div');
+      empty.className = 'empty-state';
+      empty.textContent = 'No tasks in this group yet.';
+      listEl.appendChild(empty);
+    } else {
+      group.items.forEach(item => {
+        const card = item.steps ? renderTemplateMultiCard(item, group.id) : renderTemplateSimpleRow(item, group.id);
+        listEl.appendChild(attachTemplateSwipe(card, item, group.id));
+      });
+    }
+    body.appendChild(listEl);
+
+    const addRow = document.createElement('div');
+    addRow.className = 'section-add-row';
+
+    const addSimpleBtn = document.createElement('button');
+    addSimpleBtn.type = 'button';
+    addSimpleBtn.className = 'section-add-btn';
+    addSimpleBtn.textContent = '+ Add task';
+    addSimpleBtn.addEventListener('click', () => {
+      sheetTargetSection = null;
+      sheetTargetTemplateGroupId = group.id;
+      openSheet(addSheet, addInput);
+    });
+
+    const addMultiBtn = document.createElement('button');
+    addMultiBtn.type = 'button';
+    addMultiBtn.className = 'section-add-btn';
+    addMultiBtn.textContent = '+ Add multi-step task';
+    addMultiBtn.addEventListener('click', () => {
+      sheetTargetSection = null;
+      sheetTargetTemplateGroupId = group.id;
+      multiHint.textContent = TEMPLATE_MULTI_HINT;
+      openSheet(multiSheet, multiTitle);
+    });
+
+    addRow.appendChild(addSimpleBtn);
+    addRow.appendChild(addMultiBtn);
+    body.appendChild(addRow);
+
+    section.appendChild(body);
+    return section;
+  }
+
+  function renderTemplates(){
+    templateGroupsContainer.innerHTML = '';
+    if(templateGroups.length === 0){
+      const empty = document.createElement('p');
+      empty.className = 'empty-state';
+      empty.textContent = 'No groups yet — tap "+ Add group" below to create one (e.g. "Morning routine", "Weekly reset").';
+      templateGroupsContainer.appendChild(empty);
+      return;
+    }
+    templateGroups.forEach(group => {
+      templateGroupsContainer.appendChild(renderTemplateGroup(group));
+    });
+  }
+
+  function addTemplateGroup(name){
+    templateGroups.push({ id: uid(), name, items: [] });
+  }
+  function removeTemplateGroup(groupId){
+    templateGroups = templateGroups.filter(g => g.id !== groupId);
+    collapsedTemplateGroups.delete(groupId);
+    renderAll();
+    scheduleSave();
+  }
+  function addTemplateItem(groupId, item){
+    templateGroups = templateGroups.map(g => g.id === groupId ? { ...g, items: [...g.items, item] } : g);
+  }
+  function renameTemplateItem(groupId, itemId, newText){
+    templateGroups = templateGroups.map(g => g.id !== groupId ? g : {
+      ...g, items: g.items.map(it => it.id === itemId ? { ...it, text: newText } : it)
+    });
+    renderAll();
+    scheduleSave();
+  }
+  function removeTemplateItem(groupId, itemId){
+    templateGroups = templateGroups.map(g => g.id !== groupId ? g : {
+      ...g, items: g.items.filter(it => it.id !== itemId)
+    });
+    renderAll();
+    scheduleSave();
+  }
+  function renameTemplateStep(groupId, itemId, stepId, newText){
+    templateGroups = templateGroups.map(g => g.id !== groupId ? g : {
+      ...g, items: g.items.map(it => it.id !== itemId ? it : {
+        ...it, steps: it.steps.map(s => s.id === stepId ? { ...s, text: newText } : s)
+      })
+    });
+    renderAll();
+    scheduleSave();
+  }
+  function addTemplateStep(groupId, itemId, text){
+    templateGroups = templateGroups.map(g => g.id !== groupId ? g : {
+      ...g, items: g.items.map(it => it.id !== itemId ? it : {
+        ...it, steps: [...it.steps, { id: uid(), text }]
+      })
+    });
+    renderAll();
+    scheduleSave();
+  }
+  function removeTemplateStep(groupId, itemId, stepId){
+    templateGroups = templateGroups.map(g => g.id !== groupId ? g : {
+      ...g, items: g.items.map(it => it.id !== itemId ? it : {
+        ...it, steps: it.steps.filter(s => s.id !== stepId)
+      })
+    });
+    renderAll();
+    scheduleSave();
+  }
+
+  // The only bridge between templates and real tasks: creates a brand
+  // new chore — fresh id, fresh step ids if it's multi-step, done:false,
+  // onToday:true, section:null (so it never shows up on All Tasks,
+  // exactly as required) — copied FROM the template item's current text/
+  // steps at the moment of the swipe. Nothing about the template or this
+  // new chore ever points back at each other afterward: they're two
+  // independent objects in two independent arrays from this point on, so
+  // completing, editing or deleting either one never touches the other.
+  function addTemplateItemToToday(groupId, itemId){
+    const group = templateGroups.find(g => g.id === groupId);
+    if(!group) return;
+    const item = group.items.find(it => it.id === itemId);
+    if(!item) return;
+    const newChore = item.steps
+      ? { id: uid(), text: item.text, steps: item.steps.map(s => ({ id: uid(), text: s.text, done: false })), onToday: true, section: null }
+      : { id: uid(), text: item.text, done: false, onToday: true, section: null };
+    chores.push(newChore);
+    renderAll();
+    scheduleSave();
+  }
+
   // Wraps a chore's row/card in a swipeable container that toggles its
   // `onToday` flag via setOnToday(). Only ever called for chores that
   // have a `section` (see buildListInto) — a chore with no section is
   // either a pre-All-Tasks chore or one added directly via Today's own
   // FAB, and both keep behaving exactly as before, with no swipe.
   //
-  // On the All Tasks page, swiping a chore that ISN'T yet on Today adds
-  // it there; swiping one that already IS removes it — same gesture,
-  // direction-agnostic (either left or right past the threshold
-  // commits), the on-screen label and color just reflect whichever way
-  // that chore's own current state means it'll go. The chore itself
-  // never leaves All Tasks either way, so the row just settles back in
-  // place once the flag updates.
+  // Swipe direction is consistent everywhere in the app: right always
+  // means "add to Today", left always means "remove from Today". Only
+  // one of those two is ever a real action for a given row — a chore
+  // not yet on Today can only be swiped right (added); a chore already
+  // on Today can only be swiped left (removed). Dragging the other,
+  // inapplicable direction is rubber-banded (see RUBBER_MAX below): the
+  // row moves a little to acknowledge the touch, but resists, shows no
+  // colored label, and never commits, however far or fast it's dragged.
   //
-  // On the Today page, swiping always means "remove from Today" (there
-  // is nothing else it could mean there) — the row slides fully off
-  // screen and only then is the chore actually removed from `chores`'
-  // onToday flag, so the animation has time to play before the list
-  // re-renders without it.
+  // On All Tasks, a committed swipe just flips the chore's onToday flag
+  // and settles the row back in place — the chore itself never leaves
+  // All Tasks either way, only its "on Today" badge changes.
+  //
+  // On the Today page, the only real action is remove (left) — the row
+  // slides fully off screen to the left and only then is the chore
+  // actually removed from `chores`' onToday flag, so the animation has
+  // time to play before the list re-renders without it.
   //
   // Built on Pointer Events (not touch/mouse events separately) so the
   // exact same code handles a finger on the iPad and a mouse click
@@ -2062,6 +2818,14 @@
     wrap.appendChild(rowEl);
 
     const THRESHOLD = 88;
+    // Cap on how far a row visually moves when dragged the "wrong" way
+    // (the direction that isn't a real action for this row). Using a
+    // simple asymptotic curve (d = MAX*x/(MAX+x)) rather than a flat
+    // multiplier means the row still tracks the finger 1:1 for the
+    // first few pixels — so the touch feels acknowledged — but can
+    // never travel past RUBBER_MAX, no matter how far or hard the drag,
+    // which is what keeps it unambiguous that this direction won't commit.
+    const RUBBER_MAX = 36;
     let dragging = false;
     let decided = false;
     let isHorizontal = false;
@@ -2072,6 +2836,20 @@
 
     function willRemoveFromToday(){
       return page === 'today' || !!chore.onToday;
+    }
+    // The one direction that actually does something for this row right
+    // now: -1 (left) if swiping it away removes it from Today, +1
+    // (right) if swiping it in adds it. Recomputed on every move/end
+    // since a chore's onToday flag (and so its committable direction)
+    // can only change between drags, but reading it fresh keeps this
+    // honest rather than caching a value that could go stale.
+    function committableDirection(){
+      return willRemoveFromToday() ? -1 : 1;
+    }
+    function rubberBand(rawDx){
+      const sign = rawDx < 0 ? -1 : 1;
+      const abs = Math.abs(rawDx);
+      return sign * (RUBBER_MAX * abs) / (RUBBER_MAX + abs);
     }
     function updateBgLabel(){
       const removing = willRemoveFromToday();
@@ -2117,27 +2895,35 @@
       }
       if(!isHorizontal) return;
       dx = rawDx;
-      rowEl.style.transform = 'translateX(' + dx + 'px)';
-      bg.style.opacity = String(Math.min(1, Math.abs(dx) / THRESHOLD));
+      const isCommittableDir = (dx < 0 && committableDirection() === -1) ||
+                                (dx > 0 && committableDirection() === 1);
+      // Only the row's actual, actionable direction gets full-distance
+      // tracking and a visible label; the other direction is
+      // rubber-banded and stays unlabeled (opacity 0) so it's clear
+      // dragging that way won't do anything.
+      rowEl.style.transform = 'translateX(' + (isCommittableDir ? dx : rubberBand(dx)) + 'px)';
+      bg.style.opacity = isCommittableDir ? String(Math.min(1, Math.abs(dx) / THRESHOLD)) : '0';
       if(e.cancelable) e.preventDefault();
     });
 
     function endDrag(){
       if(!dragging) return;
       dragging = false;
-      const shouldCommit = isHorizontal && Math.abs(dx) > THRESHOLD;
+      const isCommittableDir = (dx < 0 && committableDirection() === -1) ||
+                                (dx > 0 && committableDirection() === 1);
+      const shouldCommit = isHorizontal && isCommittableDir && Math.abs(dx) > THRESHOLD;
       if(!shouldCommit){
         resetRow();
         return;
       }
       if(page === 'today'){
         // Removing from Today: slide the row the rest of the way off
-        // screen and fade it out, THEN update the data — so the chore
-        // only disappears from the list once the animation has had a
-        // chance to play, rather than vanishing on the spot.
-        const direction = dx > 0 ? 1 : -1;
+        // screen (always to the left — the only committable direction
+        // on this page) and fade it out, THEN update the data — so the
+        // chore only disappears from the list once the animation has
+        // had a chance to play, rather than vanishing on the spot.
         rowEl.style.transition = 'transform 0.18s ease-out, opacity 0.18s ease-out';
-        rowEl.style.transform = 'translateX(' + (direction * 120) + '%)';
+        rowEl.style.transform = 'translateX(' + (committableDirection() * 120) + '%)';
         rowEl.style.opacity = '0';
         window.setTimeout(commit, 180);
       } else {
@@ -2224,17 +3010,26 @@
   // added chore lands: null files it straight onto Today only, exactly
   // like the app worked before All Tasks existed; any section name
   // files it into that All Tasks section instead, NOT onto Today (it
-  // only reaches Today once the user swipes it there).
+  // only reaches Today once the user swipes it there). Checked FIRST,
+  // though, is sheetTargetTemplateGroupId — set only by a Templates
+  // group's own "+ Add task" button — which routes the new item into
+  // that template group's `items` instead of `chores` entirely; a
+  // template task never has `done`/`onToday`/`section` at all, since
+  // none of those mean anything for a pattern rather than a real task.
   function addSimpleChore(){
     const value = addInput.value.trim();
     if(!value) return;
-    chores.push({
-      id: uid(),
-      text: value,
-      done: false,
-      onToday: sheetTargetSection === null,
-      section: sheetTargetSection
-    });
+    if(sheetTargetTemplateGroupId){
+      addTemplateItem(sheetTargetTemplateGroupId, { id: uid(), text: value });
+    } else {
+      chores.push({
+        id: uid(),
+        text: value,
+        done: false,
+        onToday: sheetTargetSection === null,
+        section: sheetTargetSection
+      });
+    }
     addInput.value = '';
     renderAll();
     scheduleSave();
@@ -2292,13 +3087,23 @@
     const title = multiTitle.value.trim();
     const stepLines = multiSteps.value.split('\n').map(s => s.trim()).filter(Boolean);
     if(!title || stepLines.length === 0) return;
-    chores.push({
-      id: uid(),
-      text: title,
-      steps: stepLines.map(text => ({ id: uid(), text, done: false })),
-      onToday: sheetTargetSection === null,
-      section: sheetTargetSection
-    });
+    if(sheetTargetTemplateGroupId){
+      // Template steps carry no `done` field — see the note on
+      // templateGroups above for why a template step is never checked.
+      addTemplateItem(sheetTargetTemplateGroupId, {
+        id: uid(),
+        text: title,
+        steps: stepLines.map(text => ({ id: uid(), text }))
+      });
+    } else {
+      chores.push({
+        id: uid(),
+        text: title,
+        steps: stepLines.map(text => ({ id: uid(), text, done: false })),
+        onToday: sheetTargetSection === null,
+        section: sheetTargetSection
+      });
+    }
     multiTitle.value = '';
     multiSteps.value = '';
     renderAll();
