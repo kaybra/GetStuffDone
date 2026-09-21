@@ -23,6 +23,10 @@
     --line: rgba(243,236,255,0.12);
     --radius: 14px;
     --kb-inset: 0px;
+    /* Fixed height of the bottom tab bar (Today / All Tasks / Templates
+       / Settings), not counting the device's own safe-area inset. Used
+       to push the FAB and the page's own bottom padding up above it. */
+    --tabbar-height: 60px;
   }
 
   *{ box-sizing: border-box; }
@@ -60,11 +64,18 @@
     display:flex;
     justify-content:center;
     /* Top padding adds the device's safe-area inset (the Dynamic Island
-       / notch height on iPhone) on top of the normal 30px breathing
-       room, so the "GSD MCH" heading never renders underneath it.
+       / notch height on iPhone) on top of a small 10px breathing room,
+       so the "Today" heading never renders underneath it. This is
+       deliberately small (not a fixed ~30px on top of the inset) because
+       the sticky .picker below also anchors its own `top` to this same
+       safe-area inset (see the .picker rule) — so once scrolled and
+       compact, the picker sits flush just below the inset with no extra
+       gap. Keeping this padding small too means the *expanded*,
+       unscrolled state doesn't show a large empty band above the
+       heading that has no equivalent once compact.
        viewport-fit=cover (see the viewport meta tag) is required for
        env(safe-area-inset-top) to resolve to anything other than 0. */
-    padding: calc(30px + env(safe-area-inset-top, 0px)) 14px 44px;
+    padding: calc(10px + env(safe-area-inset-top, 0px)) 14px 44px;
     position: relative;
     overflow-x: hidden;
   }
@@ -75,9 +86,10 @@
     position: relative;
     z-index: 1;
     /* Clears the fixed FAB layer (58px button + its own bottom offset)
-       so the version tag / credit line at the very end of the page don't
-       end up sitting underneath it once a user scrolls all the way down. */
-    padding-bottom: calc(90px + env(safe-area-inset-bottom, 0px));
+       AND the fixed tab bar beneath it, so the version tag / credit line
+       at the very end of the page don't end up sitting underneath either
+       once a user scrolls all the way down. */
+    padding-bottom: calc(90px + var(--tabbar-height) + env(safe-area-inset-bottom, 0px));
   }
 
   /* Header (title, subtitle, chore-count badge) is plain, normal-flow
@@ -160,7 +172,17 @@
      re-trigger the toggle. */
   .picker{
     position: sticky;
-    top: 0;
+    /* Sticks just below the safe-area inset (the Dynamic Island / notch
+       / status bar), not literal viewport y=0. `position: sticky` with
+       `top: 0` sticks the element flush against the very top edge of the
+       viewport, which sits UNDER the notch/status bar/Dynamic Island —
+       once scrolled far enough for the picker's `.compact` state to
+       kick in, it was rendering partly hidden behind that hardware
+       cutout with no visible gap above it. Anchoring `top` to the same
+       env(safe-area-inset-top) used for the page's own top padding (see
+       body{ padding }) keeps the picker sitting just clear of it in
+       both the expanded and compact states. */
+    top: env(safe-area-inset-top, 0px);
     z-index: 20;
     background: linear-gradient(155deg, var(--card), var(--card-2));
     border-radius: var(--radius);
@@ -646,7 +668,11 @@
   .fab{
     position: absolute;
     right: 18px;
-    bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+    /* Raised above the fixed tab bar (see --tabbar-height) in addition
+       to the usual safe-area clearance, so it floats just above the
+       "Today / All Tasks / Templates / Settings" bar instead of
+       overlapping it. */
+    bottom: calc(20px + var(--tabbar-height) + env(safe-area-inset-bottom, 0px));
     width: 58px;
     height: 58px;
     border-radius: 50%;
@@ -671,7 +697,7 @@
   .fab-secondary{
     position: absolute;
     right: 24px;
-    bottom: calc(92px + env(safe-area-inset-bottom, 0px));
+    bottom: calc(92px + var(--tabbar-height) + env(safe-area-inset-bottom, 0px));
     width: 46px;
     height: 46px;
     border-radius: 50%;
@@ -794,7 +820,12 @@
     font-size: 0.9rem;
     cursor:pointer;
   }
-  #multiSheet .save{ background: linear-gradient(120deg, var(--pink), var(--lav)); color:#241147; }
+  /* Matches the "Add" button in the single-chore sheet (.add-form
+     button) — same cyan/mint gradient and dark-teal text — so the two
+     add-chore flows read as the same action rather than two different
+     button styles (this one previously used the pink/lavender gradient
+     shared with the picker's own "Pick something for me" button). */
+  #multiSheet .save{ background: linear-gradient(120deg, var(--cyan), var(--mint)); color:#142a2a; }
   #multiSheet .cancel{ background: rgba(255,255,255,0.08); color: var(--ink); }
 
   .status-line{
@@ -895,10 +926,159 @@
   }
   .splash-inner button:hover{ background: #2a1610; }
 
+  /* Used only by the All Tasks completion screen, which offers two
+     choices instead of Today's single "Back to list" — stacks them with
+     a small gap instead of the default single centered button. */
+  .splash-actions{
+    display:flex;
+    flex-direction:column;
+    gap: 10px;
+  }
+  /* The destructive choice ("Clear all tasks and go back") is
+     deliberately the visually quieter of the two — an outline button in
+     the same warm splash palette rather than the solid, more prominent
+     style used by the safe default ("Keep all tasks and go back") — so
+     the easy, low-risk tap is the one that looks like the obvious one. */
+  .splash-inner button.btn-secondary{
+    background: transparent;
+    color: #3a2018;
+    border: 1.5px solid #3a2018;
+  }
+  .splash-inner button.btn-secondary:hover{ background: rgba(58,32,24,0.08); }
+
+  /* Bottom tab bar (Today / All Tasks / Templates / Settings), fixed to
+     the bottom of the screen like the app's floating add buttons.
+     Sits BELOW the fab-layer in z-index so the FAB visibly floats above
+     it, and below the sheet backdrop/sheet so an open "add a chore"
+     sheet still covers it entirely, same as it already covers the FAB. */
+  .tabbar{
+    position: fixed;
+    left: 50%;
+    transform: translateX(-50%);
+    bottom: 0;
+    width: 100%;
+    max-width: 440px;
+    height: calc(var(--tabbar-height) + env(safe-area-inset-bottom, 0px));
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    display: flex;
+    background: linear-gradient(180deg, rgba(37,20,64,0.92), rgba(24,11,46,0.98));
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    border-top: 1px solid rgba(255,255,255,0.08);
+    box-shadow: 0 -6px 20px rgba(0,0,0,0.35);
+    z-index: 55;
+  }
+  .tab-btn{
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    background: none;
+    border: none;
+    color: var(--ink-dim);
+    font-family: 'Work Sans', sans-serif;
+    font-size: 0.68rem;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 6px 4px 2px;
+  }
+  .tab-btn svg{ width: 22px; height: 22px; }
+  .tab-btn.active{ color: var(--pink); }
+  .tab-btn.active svg{ filter: drop-shadow(0 0 6px rgba(255,158,205,0.5)); }
+
+  /* All Tasks page: task sections (Priority / In the next week / In the
+     next month), each its own heading + list + inline add buttons. */
+  .task-section{ margin-bottom: 26px; }
+  .section-title{
+    font-family:'Space Grotesk', sans-serif;
+    font-weight:600;
+    font-size: 1rem;
+    color: var(--lav);
+    margin: 4px 2px 10px;
+  }
+  .section-add-row{
+    display:flex;
+    gap: 8px;
+    margin-top: 10px;
+  }
+  .section-add-btn{
+    flex:1;
+    background: rgba(255,255,255,0.05);
+    border: 1px dashed rgba(255,255,255,0.22);
+    color: var(--ink-dim);
+    border-radius: 12px;
+    padding: 10px 8px;
+    font-family:'Work Sans', sans-serif;
+    font-size: 0.78rem;
+    font-weight:600;
+    cursor:pointer;
+    transition: border-color 0.15s ease, color 0.15s ease;
+  }
+  .section-add-btn:hover{ border-color: var(--cyan); color: var(--cyan); }
+
+  /* All Tasks' own top bar (heading + Clear completed / Hide completed)
+     reuses the .picker card look for visual consistency with Today, but
+     never gets the `.compact` class added (nothing scrolls it into a
+     compact state), and its two buttons sit side by side rather than
+     stacked. */
+  .flat-actions{ display:flex; gap: 10px; }
+  .flat-actions .clear-btn, .flat-actions .filter-btn{
+    width: auto;
+    flex: 1;
+    margin-top: 0;
+  }
+
+  /* Small pill shown on an All Tasks card when that chore is already
+     flagged "on Today", so it's clear what a swipe on it will do. */
+  .today-badge{
+    flex: 0 0 auto;
+    font-size: 0.66rem;
+    font-weight: 700;
+    color: #241147;
+    background: linear-gradient(120deg, var(--pink), var(--lav));
+    padding: 3px 9px;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+
+  /* Swipeable chore rows (All Tasks <-> Today). A chore only gets this
+     wrapper when it has a `section` — i.e. it lives in All Tasks — so
+     legacy/Today-only chores (added before this feature, or added
+     directly on the Today page) keep behaving exactly as before, with
+     no swipe interaction and no behavior change.
+     The colored .swipe-bg sits underneath the actual row (.swipe-fg) and
+     is only revealed as the row is dragged away from it; the row itself
+     is opaque at rest, so nothing needs to change about how a chore
+     card/row looks when not being swiped. */
+  .swipe-wrap{
+    position: relative;
+    overflow: hidden;
+    border-radius: var(--radius);
+  }
+  .swipe-bg{
+    position: absolute;
+    inset: 0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    border-radius: var(--radius);
+    opacity: 0;
+    pointer-events: none;
+    font-family:'Space Grotesk', sans-serif;
+    font-weight:600;
+    font-size: 0.9rem;
+  }
+  .swipe-bg-add{ background: linear-gradient(120deg, var(--cyan), var(--mint)); color:#142a2a; }
+  .swipe-bg-remove{ background: linear-gradient(120deg, var(--pink), var(--lav)); color:#241147; }
+  .swipe-fg{ position: relative; z-index: 1; }
+
   @media (prefers-reduced-motion: reduce){
     .pick-btn{ transition:none; }
     .picker, .pick-btn, .clear-btn, .filter-btn, .pick-result, .pick-result .name{ transition:none; }
     .fab, .fab svg, .fab-secondary, .sheet-backdrop, .sheet{ transition:none; }
+    .swipe-fg{ transition:none !important; }
   }
 </style>
 </head>
@@ -913,10 +1093,32 @@
     </div>
   </div>
 
+  <!-- Same celebration treatment as Today's splash above, shown when
+       every chore filed into an All Tasks section (Priority / In the
+       next week / In the next month) is complete — but with a choice
+       instead of a single "Back to list", since clearing everything out
+       of All Tasks is a bigger, easier-to-regret action than clearing
+       Today's list (All Tasks is meant to hold things further out, not
+       just today's short list). Only shown while the All Tasks page is
+       actually the one on screen — see the currentPage check next to
+       where this is shown, in renderAllTasks(). -->
+  <div class="splash" id="allTasksSplash" hidden>
+    <div class="splash-inner">
+      <img id="allTasksSplashGif" alt="A little cartoon cat celebrating" />
+      <h2>All done!</h2>
+      <p>Everything in All Tasks is complete.</p>
+      <div class="splash-actions">
+        <button type="button" id="allTasksSplashKeep">Keep all tasks and go back</button>
+        <button type="button" class="btn-secondary" id="allTasksSplashClear">Clear all tasks and go back</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="page" id="pageToday">
   <header id="appHeader">
     <div class="header-row">
       <div>
-        <h1>GSD MCH</h1>
+        <h1>Today</h1>
         <p class="subtitle">Chore App</p>
       </div>
       <div class="tally-badge" id="tally">&hellip;</div>
@@ -953,17 +1155,84 @@
 
   <p class="status-line" id="statusLine"></p>
 
-  <p class="version-tag">v0.41</p>
+  <p class="version-tag">v1.1.1</p>
   <p class="credit-line">Inspired by a video by Simone Giertz,<br>please check out <a class="credit-link" href="https://www.youtube.com/@simonegiertz" target="_blank" rel="noopener noreferrer">her channel</a></p>
   <p class="support-line">This app is free and ad-free, but you can<br><a class="credit-link" href="https://ko-fi.com/getstuffdone" target="_blank" rel="noopener noreferrer">buy me a coffee here</a></p>
+  </div>
+
+  <!-- All Tasks: every chore that's been filed into a section, grouped
+       Priority / In the next week / In the next month. A chore only
+       shows up here once it's been added via one of these sections' own
+       "+ Add" buttons below (not chores added directly on Today, which
+       stay Today-only exactly as before). Swiping a card here toggles
+       whether it's also on today's list; the same swipe on Today removes
+       it from Today without deleting it from here. Hidden by default —
+       switchPage() reveals whichever page is active. -->
+  <div class="page" id="pageAllTasks" hidden>
+    <header>
+      <h1>All Tasks</h1>
+    </header>
+
+    <div class="picker">
+      <div class="flat-actions">
+        <button class="clear-btn" id="allTasksClearBtn" aria-label="Clear completed">
+          <span class="clear-btn-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m-9 0 1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M10 11v6M14 11v6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></span>
+          <span class="clear-btn-label">Clear completed</span>
+        </button>
+        <button class="filter-btn" id="allTasksFilterBtn" aria-label="Hide completed">
+          <span class="filter-btn-icon" id="allTasksFilterBtnIcon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M3 3l18 18M10.6 10.6a3 3 0 0 0 4.24 4.24M6.3 6.3C4 7.9 2.5 10 2 12c1.5 4 5.5 7 10 7 1.6 0 3.1-.35 4.45-1M9.9 4.24A10.9 10.9 0 0 1 12 4c4.5 0 8.5 3 10 8a12.3 12.3 0 0 1-2.16 3.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+          <span class="filter-btn-label">Hide completed</span>
+        </button>
+      </div>
+    </div>
+
+    <section class="task-section" data-section="priority">
+      <h2 class="section-title">Priority</h2>
+      <div class="list" id="listPriority"></div>
+      <div class="section-add-row">
+        <button type="button" class="section-add-btn" data-section="priority" data-kind="simple">+ Add chore</button>
+        <button type="button" class="section-add-btn" data-section="priority" data-kind="multi">+ Add multi-step chore</button>
+      </div>
+    </section>
+
+    <section class="task-section" data-section="week">
+      <h2 class="section-title">In the next week</h2>
+      <div class="list" id="listWeek"></div>
+      <div class="section-add-row">
+        <button type="button" class="section-add-btn" data-section="week" data-kind="simple">+ Add chore</button>
+        <button type="button" class="section-add-btn" data-section="week" data-kind="multi">+ Add multi-step chore</button>
+      </div>
+    </section>
+
+    <section class="task-section" data-section="month">
+      <h2 class="section-title">In the next month</h2>
+      <div class="list" id="listMonth"></div>
+      <div class="section-add-row">
+        <button type="button" class="section-add-btn" data-section="month" data-kind="simple">+ Add chore</button>
+        <button type="button" class="section-add-btn" data-section="month" data-kind="multi">+ Add multi-step chore</button>
+      </div>
+    </section>
+  </div>
+
+  <div class="page" id="pageTemplates" hidden>
+    <header><h1>Templates</h1></header>
+    <p class="empty-state">Templates are coming soon — reusable chore sets you'll be able to drop into All Tasks in one tap.</p>
+  </div>
+
+  <div class="page" id="pageSettings" hidden>
+    <header><h1>Settings</h1></header>
+    <p class="empty-state">Settings are coming soon.</p>
+  </div>
 </div>
 
 <!-- Floating add button, pinned to the bottom-right of the screen and
      unaffected by scrolling. Tapping it directly opens the "add a single
      chore" sheet (the default action); the smaller secondary button just
      above it directly opens the "add a multi-step chore" sheet. Neither
-     needs an extra menu tap. -->
-<div class="fab-layer">
+     needs an extra menu tap. Only shown on the Today page — on All Tasks,
+     adding happens via each section's own "+ Add" buttons instead, since
+     a global add button there wouldn't know which section to file into. -->
+<div class="fab-layer" id="fabLayer">
   <button type="button" class="fab-secondary" id="fabMultiBtn" aria-label="Add a multi-step chore">
     <svg viewBox="0 0 24 24" fill="none"><path d="M3 6.5h9M3 12h9M3 17.5h5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M18 8v10M13 13h10" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
   </button>
@@ -971,6 +1240,28 @@
     <svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
   </button>
 </div>
+
+<!-- Bottom tab bar. data-page on each button matches the id suffix of
+     its target .page element (today -> #pageToday, etc.) and is read
+     straight by switchPage() in the script below. -->
+<nav class="tabbar" id="tabbar">
+  <button type="button" class="tab-btn" data-page="today" aria-label="Today">
+    <svg viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="16" rx="3" stroke="currentColor" stroke-width="1.6"/><path d="M7 9h6M7 13h4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M7 17l1.5 1.5L12 15" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <span>Today</span>
+  </button>
+  <button type="button" class="tab-btn" data-page="allTasks" aria-label="All Tasks">
+    <svg viewBox="0 0 24 24" fill="none"><path d="M4 6h16M4 12h16M4 18h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+    <span>All Tasks</span>
+  </button>
+  <button type="button" class="tab-btn" data-page="templates" aria-label="Templates">
+    <svg viewBox="0 0 24 24" fill="none"><rect x="6" y="3" width="14" height="14" rx="3" stroke="currentColor" stroke-width="1.6"/><path d="M4 9v10a2 2 0 0 0 2 2h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+    <span>Templates</span>
+  </button>
+  <button type="button" class="tab-btn" data-page="settings" aria-label="Settings">
+    <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3.2" stroke="currentColor" stroke-width="1.6"/><path d="M12 3v2.4M12 18.6V21M4.9 4.9l1.7 1.7M17.4 17.4l1.7 1.7M3 12h2.4M18.6 12H21M4.9 19.1l1.7-1.7M17.4 6.6l1.7-1.7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+    <span>Settings</span>
+  </button>
+</nav>
 
 <div class="sheet-backdrop" id="sheetBackdrop" hidden></div>
 
@@ -1041,6 +1332,33 @@
   splashClose.addEventListener('click', () => {
     splash.hidden = true;
   });
+
+  // All Tasks' own completion screen — same celebration image, but a
+  // choice of two actions instead of Today's single "Back to list" (see
+  // the long comment on #allTasksSplash in the markup for why).
+  const allTasksSplash = document.getElementById('allTasksSplash');
+  const allTasksSplashGif = document.getElementById('allTasksSplashGif');
+  const allTasksSplashKeep = document.getElementById('allTasksSplashKeep');
+  const allTasksSplashClear = document.getElementById('allTasksSplashClear');
+  allTasksSplashGif.src = "data:image/gif;base64," + CELEBRATE_GIF_BASE64;
+
+  // "Keep all tasks and go back": just closes the screen, nothing about
+  // any chore's data changes — everything that was complete stays
+  // exactly as it was, still sitting in its section.
+  allTasksSplashKeep.addEventListener('click', () => {
+    allTasksSplash.hidden = true;
+  });
+  // "Clear all tasks and go back": everything in All Tasks is complete
+  // at this point (that's the only way this screen shows), so this is
+  // exactly Clear Completed scoped to All Tasks (same function the
+  // page's own Clear Completed button uses) — it removes every chore
+  // filed into a section. Explicitly hides the screen afterward too,
+  // though clearCompleted()'s own re-render already won't re-trigger it
+  // (see the empty-list guard in renderAllTasks() below).
+  allTasksSplashClear.addEventListener('click', () => {
+    clearCompleted(c => !!c.section);
+    allTasksSplash.hidden = true;
+  });
   const multiTitle = document.getElementById('multiTitle');
   const multiSteps = document.getElementById('multiSteps');
   const multiSave = document.getElementById('multiSave');
@@ -1051,10 +1369,53 @@
   const addSheet = document.getElementById('addSheet');
   const multiSheet = document.getElementById('multiSheet');
 
+  // --- Tab bar / multi-page refs -------------------------------------
+  const pageToday = document.getElementById('pageToday');
+  const pageAllTasks = document.getElementById('pageAllTasks');
+  const pageTemplates = document.getElementById('pageTemplates');
+  const pageSettings = document.getElementById('pageSettings');
+  const pagesByName = { today: pageToday, allTasks: pageAllTasks, templates: pageTemplates, settings: pageSettings };
+  const tabButtons = Array.from(document.querySelectorAll('.tab-btn'));
+  const fabLayer = document.getElementById('fabLayer');
+
+  // --- All Tasks refs --------------------------------------------------
+  const listPriority = document.getElementById('listPriority');
+  const listWeek = document.getElementById('listWeek');
+  const listMonth = document.getElementById('listMonth');
+  const SECTION_LISTS = { priority: listPriority, week: listWeek, month: listMonth };
+  const allTasksClearBtn = document.getElementById('allTasksClearBtn');
+  const allTasksFilterBtn = document.getElementById('allTasksFilterBtn');
+  const allTasksFilterBtnLabel = allTasksFilterBtn.querySelector('.filter-btn-label');
+  const allTasksFilterBtnIcon = document.getElementById('allTasksFilterBtnIcon');
+
   let chores = [];
   let saveTimer = null;
   let previousRemaining = null;
-  let hideCompleted = false;
+  // Same idea as previousRemaining above, but scoped to every chore
+  // filed into an All Tasks section — drives the All Tasks completion
+  // screen the same way previousRemaining drives Today's.
+  let previousRemainingAllTasks = null;
+  // Which page is currently on screen — kept in sync by switchPage().
+  // Used to decide whether to actually pop up the All Tasks completion
+  // screen the instant everything there becomes complete, or just note
+  // it quietly: that transition can happen while All Tasks isn't even
+  // the page on screen (e.g. ticking a chore on Today that happens to
+  // also be the last remaining item in an All Tasks section), and
+  // surfacing a full-screen "All done!" over a page the user didn't ask
+  // about would be a surprise rather than a celebration.
+  let currentPage = 'today';
+  // Today and All Tasks each have their own independent "hide completed"
+  // state — toggling one doesn't affect what the other page shows.
+  let hideCompletedToday = false;
+  let hideCompletedAllTasks = false;
+  // Which section (if any) a chore added through the currently-open
+  // add/multi-add sheet should be filed into. null means "adding
+  // directly on Today" (the sheet's original, pre-All-Tasks behavior):
+  // the new chore goes straight onto Today and isn't filed into any
+  // All Tasks section. Set right before openSheet() is called, by
+  // whichever button opened the sheet (the Today FAB vs. a section's
+  // own "+ Add" button).
+  let sheetTargetSection = null;
 
   // Keeps the bottom sheets above the on-screen keyboard. See the long
   // comment on `.sheet` in the CSS above for why this is needed: without
@@ -1157,12 +1518,50 @@
     }, SHEET_TRANSITION_MS);
   }
 
-  fabBtn.addEventListener('click', () => openSheet(addSheet, addInput));
-  fabMultiBtn.addEventListener('click', () => openSheet(multiSheet, multiTitle));
+  // Today's own FAB always adds straight onto Today (the sheet's
+  // original behavior, unchanged) — so it explicitly clears any section
+  // that might have been left over from a previous All Tasks add.
+  fabBtn.addEventListener('click', () => { sheetTargetSection = null; openSheet(addSheet, addInput); });
+  fabMultiBtn.addEventListener('click', () => { sheetTargetSection = null; openSheet(multiSheet, multiTitle); });
   sheetBackdrop.addEventListener('click', () => closeSheet());
   document.addEventListener('keydown', (e) => {
     if(e.key === 'Escape' && openSheetEl) closeSheet();
   });
+
+  // All Tasks: each section's own "+ Add chore" / "+ Add multi-step
+  // chore" buttons open the same two sheets used by Today's FAB, but
+  // first record which section the new chore should be filed into —
+  // read back by addSimpleChore()/multiSave() below.
+  document.querySelectorAll('.section-add-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      sheetTargetSection = btn.dataset.section;
+      if(btn.dataset.kind === 'multi'){
+        openSheet(multiSheet, multiTitle);
+      } else {
+        openSheet(addSheet, addInput);
+      }
+    });
+  });
+
+  // Bottom tab bar: swap which .page is visible, show the Today-only FAB
+  // only on Today (All Tasks adds via its own per-section buttons
+  // instead), and reset scroll so a page doesn't open mid-scroll from
+  // wherever the previous page was left.
+  function switchPage(name){
+    currentPage = name;
+    Object.keys(pagesByName).forEach((key) => {
+      pagesByName[key].hidden = (key !== name);
+    });
+    tabButtons.forEach((btn) => {
+      btn.classList.toggle('active', btn.dataset.page === name);
+    });
+    fabLayer.hidden = (name !== 'today');
+    window.scrollTo(0, 0);
+  }
+  tabButtons.forEach((btn) => {
+    btn.addEventListener('click', () => switchPage(btn.dataset.page));
+  });
+  switchPage('today');
 
   // Sticky picker: only the picker card (Pick/Clear/Hide) is sticky and
   // pinned to the top of the screen. The header (title/subtitle/tally)
@@ -1253,6 +1652,25 @@
     { id: uid(), text: 'Vacuum the living room', done: false }
   ];
 
+  // Every chore now carries two extra fields introduced by the All
+  // Tasks / tab-bar feature:
+  //   onToday — whether it currently shows on the Today page.
+  //   section — 'priority' | 'week' | 'month' | null. null means the
+  //             chore isn't filed into All Tasks at all (either it
+  //             predates this feature, or it was added directly via
+  //             Today's own FAB, which still adds Today-only chores
+  //             exactly as before).
+  // Chores saved by any earlier version of the app have neither field.
+  // This spreads sensible defaults (onToday:true, section:null) UNDER
+  // each loaded chore's own properties, so a chore that already has
+  // these fields keeps its real values, while one that doesn't quietly
+  // gains them — it keeps showing up on Today exactly as it did before
+  // this feature existed, and isn't retroactively filed into any All
+  // Tasks section.
+  function normalizeChore(c){
+    return { onToday: true, section: null, ...c };
+  }
+
   function load(){
     try{
       const raw = localStorage.getItem(STORAGE_KEY);
@@ -1260,7 +1678,8 @@
     }catch(e){
       chores = defaultChores;
     }
-    render();
+    chores = chores.map(normalizeChore);
+    renderAll();
   }
 
   function persist(){
@@ -1308,7 +1727,7 @@
         if(shouldSave && val && val !== currentValue){
           onSave(val);
         } else {
-          render();
+          renderAll();
         }
       }
       input.addEventListener('blur', () => finish(true));
@@ -1319,33 +1738,61 @@
     }
   }
 
-  function render(){
-    list.innerHTML = '';
-    const visibleChores = hideCompleted ? chores.filter(c => !isChoreComplete(c)) : chores;
+  // Renders every page every time anything changes, regardless of which
+  // one is currently visible (switchPage() only toggles which is shown).
+  // This is what makes Today and All Tasks stay in sync for free: they
+  // both read from the same `chores` array, so there's no separate
+  // invalidation logic to keep two copies consistent — ticking a step on
+  // one page is immediately reflected on the other the next time it's
+  // switched to, because it's the exact same underlying chore object.
+  function renderAll(){
+    renderToday();
+    renderAllTasks();
+  }
 
-    if(chores.length === 0){
+  // Shared list-building logic used by both Today and every All Tasks
+  // section: filters by the page's own "hide completed" flag, shows an
+  // empty-state message when appropriate, and renders each chore as
+  // either a simple row or a multi-step card — wrapped in a swipeable
+  // container when (and only when) it has a `section`, i.e. it's a
+  // chore that lives in All Tasks (see attachSwipe for why legacy/
+  // Today-only chores are left exactly as they were).
+  function buildListInto(containerEl, choresSubset, hideFlag, pageContext, emptyMsg, allHiddenMsg){
+    containerEl.innerHTML = '';
+    const visibleChores = hideFlag ? choresSubset.filter(c => !isChoreComplete(c)) : choresSubset;
+
+    if(choresSubset.length === 0){
       const empty = document.createElement('div');
       empty.className = 'empty-state';
-      empty.textContent = 'No chores yet. Add your first one below.';
-      list.appendChild(empty);
-    } else if(visibleChores.length === 0){
-      const empty = document.createElement('div');
-      empty.className = 'empty-state';
-      empty.textContent = 'Everything visible is done — nice work.';
-      list.appendChild(empty);
-    } else {
-      visibleChores.forEach(chore => {
-        if(chore.steps){
-          list.appendChild(renderMultiCard(chore));
-        } else {
-          list.appendChild(renderSimpleRow(chore));
-        }
-      });
+      empty.textContent = emptyMsg;
+      containerEl.appendChild(empty);
+      return;
     }
+    if(visibleChores.length === 0){
+      const empty = document.createElement('div');
+      empty.className = 'empty-state';
+      empty.textContent = allHiddenMsg;
+      containerEl.appendChild(empty);
+      return;
+    }
+    visibleChores.forEach(chore => {
+      const card = chore.steps ? renderMultiCard(chore, hideFlag, pageContext) : renderSimpleRow(chore, pageContext);
+      const finalEl = chore.section ? attachSwipe(card, chore, pageContext) : card;
+      containerEl.appendChild(finalEl);
+    });
+  }
+
+  function renderToday(){
+    const todayChores = chores.filter(c => c.onToday);
+    buildListInto(
+      list, todayChores, hideCompletedToday, 'today',
+      'No chores yet. Add one below, or swipe one in from All Tasks.',
+      'Everything visible is done — nice work.'
+    );
 
     let totalItems = 0;
     let remaining = 0;
-    chores.forEach(chore => {
+    todayChores.forEach(chore => {
       if(chore.steps){
         totalItems += chore.steps.length;
         remaining += chore.steps.filter(s => !s.done).length;
@@ -1373,20 +1820,61 @@
     pickResult.hidden = true;
     pickEmpty.hidden = remaining > 0;
     pickBtn.disabled = remaining === 0;
-    clearBtn.disabled = !chores.some(c => isChoreComplete(c));
-    const filterText = hideCompleted ? 'Show all' : 'Hide completed';
+    clearBtn.disabled = !todayChores.some(c => isChoreComplete(c)) && !todayChores.some(c => c.steps && c.steps.some(s => s.done));
+    const filterText = hideCompletedToday ? 'Show all' : 'Hide completed';
     filterBtnLabel.textContent = filterText;
     filterBtn.setAttribute('aria-label', filterText);
-    filterBtn.classList.toggle('active', hideCompleted);
-    filterBtnIcon.innerHTML = hideCompleted ? EYE_ICON : EYE_SLASH_ICON;
+    filterBtn.classList.toggle('active', hideCompletedToday);
+    filterBtnIcon.innerHTML = hideCompletedToday ? EYE_ICON : EYE_SLASH_ICON;
 
-    if(previousRemaining !== null && previousRemaining > 0 && remaining === 0 && chores.length > 0){
+    if(previousRemaining !== null && previousRemaining > 0 && remaining === 0 && todayChores.length > 0){
       splash.hidden = false;
     }
     previousRemaining = remaining;
   }
 
-  function renderSimpleRow(chore){
+  function renderAllTasks(){
+    ['priority', 'week', 'month'].forEach((key) => {
+      const sectionChores = chores.filter(c => c.section === key);
+      buildListInto(
+        SECTION_LISTS[key], sectionChores, hideCompletedAllTasks, 'allTasks',
+        'Nothing here yet.',
+        'Everything visible is done — nice work.'
+      );
+    });
+
+    const allTaskChores = chores.filter(c => !!c.section);
+    allTasksClearBtn.disabled = !allTaskChores.some(c => isChoreComplete(c)) && !allTaskChores.some(c => c.steps && c.steps.some(s => s.done));
+    const filterText = hideCompletedAllTasks ? 'Show all' : 'Hide completed';
+    allTasksFilterBtnLabel.textContent = filterText;
+    allTasksFilterBtn.setAttribute('aria-label', filterText);
+    allTasksFilterBtn.classList.toggle('active', hideCompletedAllTasks);
+    allTasksFilterBtnIcon.innerHTML = hideCompletedAllTasks ? EYE_ICON : EYE_SLASH_ICON;
+
+    // All Tasks completion screen — same transition-detection pattern as
+    // Today's splash (previousRemaining goes from >0 to 0), just scoped
+    // to every chore that's been filed into a section instead of every
+    // chore on Today. Only actually shown if All Tasks is the page
+    // currently on screen (see the comment on currentPage above); either
+    // way previousRemainingAllTasks is still updated every render, so a
+    // completion that happens off-screen doesn't retroactively pop up
+    // once the user switches to All Tasks later — it's only for the
+    // moment it actually happens while they're looking at this page.
+    let remainingAllTasks = 0;
+    allTaskChores.forEach(chore => {
+      if(chore.steps){
+        remainingAllTasks += chore.steps.filter(s => !s.done).length;
+      } else if(!chore.done){
+        remainingAllTasks += 1;
+      }
+    });
+    if(currentPage === 'allTasks' && previousRemainingAllTasks !== null && previousRemainingAllTasks > 0 && remainingAllTasks === 0 && allTaskChores.length > 0){
+      allTasksSplash.hidden = false;
+    }
+    previousRemainingAllTasks = remainingAllTasks;
+  }
+
+  function renderSimpleRow(chore, pageContext){
     const row = document.createElement('div');
     row.className = 'item' + (chore.done ? ' done' : '');
 
@@ -1409,11 +1897,19 @@
 
     row.appendChild(check);
     row.appendChild(text);
+    // "On Today" badge only makes sense on All Tasks — Today's own list
+    // obviously only ever shows chores that are already on Today.
+    if(pageContext === 'allTasks' && chore.onToday){
+      const badge = document.createElement('span');
+      badge.className = 'today-badge';
+      badge.textContent = 'On Today';
+      row.appendChild(badge);
+    }
     row.appendChild(del);
     return row;
   }
 
-  function renderMultiCard(chore){
+  function renderMultiCard(chore, hideFlag, pageContext){
     const card = document.createElement('div');
     card.className = 'item multi';
 
@@ -1438,6 +1934,12 @@
 
     head.appendChild(title);
     head.appendChild(progress);
+    if(pageContext === 'allTasks' && chore.onToday){
+      const badge = document.createElement('span');
+      badge.className = 'today-badge';
+      badge.textContent = 'On Today';
+      head.appendChild(badge);
+    }
     head.appendChild(del);
     card.appendChild(head);
 
@@ -1454,7 +1956,7 @@
     // one step is guaranteed to remain, since a fully-done chore would
     // already have been filtered out of visibleChores entirely before
     // this function is ever called.
-    const visibleSteps = hideCompleted ? chore.steps.filter(s => !s.done) : chore.steps;
+    const visibleSteps = hideFlag ? chore.steps.filter(s => !s.done) : chore.steps;
 
     visibleSteps.forEach(step => {
       const row = document.createElement('div');
@@ -1512,6 +2014,146 @@
     return card;
   }
 
+  // Wraps a chore's row/card in a swipeable container that toggles its
+  // `onToday` flag via setOnToday(). Only ever called for chores that
+  // have a `section` (see buildListInto) — a chore with no section is
+  // either a pre-All-Tasks chore or one added directly via Today's own
+  // FAB, and both keep behaving exactly as before, with no swipe.
+  //
+  // On the All Tasks page, swiping a chore that ISN'T yet on Today adds
+  // it there; swiping one that already IS removes it — same gesture,
+  // direction-agnostic (either left or right past the threshold
+  // commits), the on-screen label and color just reflect whichever way
+  // that chore's own current state means it'll go. The chore itself
+  // never leaves All Tasks either way, so the row just settles back in
+  // place once the flag updates.
+  //
+  // On the Today page, swiping always means "remove from Today" (there
+  // is nothing else it could mean there) — the row slides fully off
+  // screen and only then is the chore actually removed from `chores`'
+  // onToday flag, so the animation has time to play before the list
+  // re-renders without it.
+  //
+  // Built on Pointer Events (not touch/mouse events separately) so the
+  // exact same code handles a finger on the iPad and a mouse click
+  // while testing in a browser. `touch-action: pan-y` on the row tells
+  // the browser to keep handling vertical scrolling natively and only
+  // hand horizontal movement to this code, which is what lets a normal
+  // scroll through the list keep working on a page full of swipeable
+  // rows. Pointer capture is deferred until a drag is actually
+  // recognised as horizontal (not requested immediately on pointerdown)
+  // specifically so a plain tap on the checkbox/text/delete button
+  // inside the row is completely unaffected — it never enters "drag"
+  // handling at all.
+  //
+  // NOTE: this gesture can only be exercised by an actual touch/pointer
+  // drag on a real device — there is no way to verify the feel of the
+  // threshold or the animation from this environment (no Mac, no
+  // device attached here). It should be tried on-device via TestFlight
+  // before shipping, the same way prior on-device-only bugs in this app
+  // were found and fixed.
+  function attachSwipe(rowEl, chore, page){
+    const wrap = document.createElement('div');
+    wrap.className = 'swipe-wrap';
+    const bg = document.createElement('div');
+    bg.className = 'swipe-bg';
+    wrap.appendChild(bg);
+    rowEl.classList.add('swipe-fg');
+    wrap.appendChild(rowEl);
+
+    const THRESHOLD = 88;
+    let dragging = false;
+    let decided = false;
+    let isHorizontal = false;
+    let startX = 0;
+    let startY = 0;
+    let dx = 0;
+    let pointerId = null;
+
+    function willRemoveFromToday(){
+      return page === 'today' || !!chore.onToday;
+    }
+    function updateBgLabel(){
+      const removing = willRemoveFromToday();
+      bg.textContent = removing ? 'Remove from Today' : 'Add to Today';
+      bg.classList.toggle('swipe-bg-remove', removing);
+      bg.classList.toggle('swipe-bg-add', !removing);
+    }
+    updateBgLabel();
+    rowEl.style.touchAction = 'pan-y';
+
+    function resetRow(){
+      rowEl.style.transition = 'transform 0.18s ease-out';
+      rowEl.style.transform = 'translateX(0px)';
+      bg.style.opacity = '0';
+    }
+
+    function commit(){
+      setOnToday(chore.id, !willRemoveFromToday());
+    }
+
+    rowEl.addEventListener('pointerdown', (e) => {
+      if(e.pointerType === 'mouse' && e.button !== 0) return;
+      dragging = true;
+      decided = false;
+      isHorizontal = false;
+      dx = 0;
+      startX = e.clientX;
+      startY = e.clientY;
+      pointerId = e.pointerId;
+      rowEl.style.transition = 'none';
+    });
+
+    rowEl.addEventListener('pointermove', (e) => {
+      if(!dragging) return;
+      const rawDx = e.clientX - startX;
+      const rawDy = e.clientY - startY;
+      if(!decided){
+        if(Math.abs(rawDx) < 8 && Math.abs(rawDy) < 8) return;
+        decided = true;
+        isHorizontal = Math.abs(rawDx) > Math.abs(rawDy);
+        if(!isHorizontal){ dragging = false; return; }
+        try{ rowEl.setPointerCapture(pointerId); }catch(err){ /* not supported — drag still works without capture */ }
+      }
+      if(!isHorizontal) return;
+      dx = rawDx;
+      rowEl.style.transform = 'translateX(' + dx + 'px)';
+      bg.style.opacity = String(Math.min(1, Math.abs(dx) / THRESHOLD));
+      if(e.cancelable) e.preventDefault();
+    });
+
+    function endDrag(){
+      if(!dragging) return;
+      dragging = false;
+      const shouldCommit = isHorizontal && Math.abs(dx) > THRESHOLD;
+      if(!shouldCommit){
+        resetRow();
+        return;
+      }
+      if(page === 'today'){
+        // Removing from Today: slide the row the rest of the way off
+        // screen and fade it out, THEN update the data — so the chore
+        // only disappears from the list once the animation has had a
+        // chance to play, rather than vanishing on the spot.
+        const direction = dx > 0 ? 1 : -1;
+        rowEl.style.transition = 'transform 0.18s ease-out, opacity 0.18s ease-out';
+        rowEl.style.transform = 'translateX(' + (direction * 120) + '%)';
+        rowEl.style.opacity = '0';
+        window.setTimeout(commit, 180);
+      } else {
+        // All Tasks: the chore stays right where it is either way, so
+        // just settle the row back to rest and flip the flag — the
+        // re-render will pick up the updated "On Today" badge.
+        resetRow();
+        commit();
+      }
+    }
+    rowEl.addEventListener('pointerup', endDrag);
+    rowEl.addEventListener('pointercancel', endDrag);
+
+    return wrap;
+  }
+
   function toggle(choreId, stepId){
     chores = chores.map(chore => {
       if(chore.id !== choreId) return chore;
@@ -1523,19 +2165,19 @@
       }
       return {...chore, done: !chore.done};
     });
-    render();
+    renderAll();
     scheduleSave();
   }
 
   function remove(id){
     chores = chores.filter(c => c.id !== id);
-    render();
+    renderAll();
     scheduleSave();
   }
 
   function renameChore(choreId, newText){
     chores = chores.map(c => c.id === choreId ? {...c, text: newText} : c);
-    render();
+    renderAll();
     scheduleSave();
   }
 
@@ -1544,7 +2186,7 @@
       if(c.id !== choreId) return c;
       return {...c, steps: c.steps.map(s => s.id === stepId ? {...s, text: newText} : s)};
     });
-    render();
+    renderAll();
     scheduleSave();
   }
 
@@ -1553,7 +2195,7 @@
       if(c.id !== choreId) return c;
       return {...c, steps: [...c.steps, { id: uid(), text, done: false }]};
     });
-    render();
+    renderAll();
     scheduleSave();
   }
 
@@ -1562,31 +2204,74 @@
       if(c.id !== choreId) return c;
       return {...c, steps: c.steps.filter(s => s.id !== stepId)};
     });
-    render();
+    renderAll();
     scheduleSave();
   }
 
+  // Flips a chore's onToday flag without touching anything else about
+  // it — used both by the swipe gesture (attachSwipe, below) and could
+  // be reused by any other future "add/remove from Today" control. The
+  // chore itself is never deleted or duplicated: it's the same object
+  // either way, just shown or not shown on the Today page.
+  function setOnToday(choreId, value){
+    chores = chores.map(c => c.id === choreId ? {...c, onToday: value} : c);
+    renderAll();
+    scheduleSave();
+  }
+
+  // sheetTargetSection (set by whichever button opened the sheet — see
+  // the FAB and .section-add-btn listeners above) decides where a newly
+  // added chore lands: null files it straight onto Today only, exactly
+  // like the app worked before All Tasks existed; any section name
+  // files it into that All Tasks section instead, NOT onto Today (it
+  // only reaches Today once the user swipes it there).
   function addSimpleChore(){
     const value = addInput.value.trim();
     if(!value) return;
-    chores.push({ id: uid(), text: value, done: false });
+    chores.push({
+      id: uid(),
+      text: value,
+      done: false,
+      onToday: sheetTargetSection === null,
+      section: sheetTargetSection
+    });
     addInput.value = '';
-    render();
+    renderAll();
     scheduleSave();
     closeSheet();
   }
 
-  function clearCompleted(){
-    chores = chores.filter(c => !isChoreComplete(c));
-    render();
+  // Clearing completed removes every fully-completed chore that belongs
+  // to whichever page's Clear Completed button was pressed (matchesPage
+  // decides that — see the two listeners below), AND strips completed
+  // steps out of matching multi-step chores that are only partially
+  // done. A chore that DOESN'T match matchesPage is left completely
+  // untouched, even if it happens to be fully complete — Today's Clear
+  // Completed only ever acts on chores that are on Today, and All
+  // Tasks' only ever acts on chores filed into one of its sections, so
+  // clearing one page never silently deletes something sitting on the
+  // other. (Deleting a chore this way does remove it everywhere at
+  // once if it happens to live on both — see the comment above
+  // setOnToday: it's the same shared object either way, so once it's
+  // fully done there's nothing left to keep it around for.)
+  function clearCompleted(matchesPage){
+    chores = chores
+      .filter(c => !(matchesPage(c) && isChoreComplete(c)))
+      .map(c => (matchesPage(c) && c.steps) ? {...c, steps: c.steps.filter(s => !s.done)} : c);
+    renderAll();
     scheduleSave();
   }
 
-  clearBtn.addEventListener('click', clearCompleted);
+  clearBtn.addEventListener('click', () => clearCompleted(c => c.onToday));
+  allTasksClearBtn.addEventListener('click', () => clearCompleted(c => !!c.section));
 
   filterBtn.addEventListener('click', () => {
-    hideCompleted = !hideCompleted;
-    render();
+    hideCompletedToday = !hideCompletedToday;
+    renderAll();
+  });
+  allTasksFilterBtn.addEventListener('click', () => {
+    hideCompletedAllTasks = !hideCompletedAllTasks;
+    renderAll();
   });
 
   addBtn.addEventListener('click', addSimpleChore);
@@ -1610,18 +2295,23 @@
     chores.push({
       id: uid(),
       text: title,
-      steps: stepLines.map(text => ({ id: uid(), text, done: false }))
+      steps: stepLines.map(text => ({ id: uid(), text, done: false })),
+      onToday: sheetTargetSection === null,
+      section: sheetTargetSection
     });
     multiTitle.value = '';
     multiSteps.value = '';
-    render();
+    renderAll();
     scheduleSave();
     closeSheet();
   });
 
+  // "Pick something for me" only ever picks from what's on Today — All
+  // Tasks chores that haven't been swiped onto Today yet aren't
+  // candidates, since they're not something to do today.
   function getCandidates(){
     const candidates = [];
-    chores.forEach(chore => {
+    chores.filter(c => c.onToday).forEach(chore => {
       if(chore.steps){
         const nextStep = chore.steps.find(s => !s.done);
         if(nextStep){
