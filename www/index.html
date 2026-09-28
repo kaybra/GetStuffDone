@@ -81,8 +81,8 @@
   }
 
   :root[data-theme="neutral"]{
-    --bg: #eef6f1;
-    --bg-2: #e2eee7;
+    --bg: #f5f5f5;
+    --bg-2: #f5f5f5;
     --card: #ffffff;
     --card-2: #f3f9f6;
     --ink: #16241d;
@@ -99,10 +99,44 @@
     --yellow-rgb: 56,182,255;
     --ink-rgb: 22,36,29;
     --card-rgb: 255,255,255;
-    --bg-rgb: 238,246,241;
+    --bg-rgb: 245,245,245;
     --hairline-rgb: 20,36,29;
     --btn-ink-a: #ffffff;
     --btn-ink-b: #ffffff;
+  }
+
+  /* Neutral (light) theme: flat, very light grey page background — no gradient, no colour tints */
+  :root[data-theme="neutral"] body{
+    background: var(--bg);
+    background-attachment: fixed;
+  }
+
+  /* Neutral (light) theme: flat colours instead of gradients on primary buttons,
+     swipe actions/badges, and the toggle switch */
+  :root[data-theme="neutral"] .add-form button,
+  :root[data-theme="neutral"] #multiSheet .save,
+  :root[data-theme="neutral"] .swipe-legend-add,
+  :root[data-theme="neutral"] .swipe-bg-add{
+    background: var(--cyan);
+  }
+  :root[data-theme="neutral"] .pick-btn,
+  :root[data-theme="neutral"] .fab,
+  :root[data-theme="neutral"] .today-badge,
+  :root[data-theme="neutral"] .drag-ghost,
+  :root[data-theme="neutral"] .toggle-switch.on,
+  :root[data-theme="neutral"] .swipe-legend-remove,
+  :root[data-theme="neutral"] .swipe-bg-remove{
+    background: var(--pink);
+  }
+
+  /* Neutral (light) theme: no glow on the main heading */
+  :root[data-theme="neutral"] h1{
+    text-shadow: none;
+  }
+
+  /* Neutral (light) theme: flat colour on the theme toggle in settings */
+  :root[data-theme="neutral"] .theme-option.active{
+    background: var(--pink);
   }
 
   *{ box-sizing: border-box; }
