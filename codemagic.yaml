@@ -128,6 +128,17 @@ workflows:
           # straight onto a phone for testing.
           ./gradlew bundleRelease assembleRelease -PversionCode="$BUILD_NUMBER"
 
+      - name: Put the version number in the .apk / .aab file names
+        script: |
+          VERSION=$(node -p "require('./package.json').version")
+          for f in android/app/build/outputs/apk/release/*.apk; do
+            mv "$f" "android/app/build/outputs/apk/release/GSD-MCH-v${VERSION}-build${BUILD_NUMBER}.apk"
+          done
+          for f in android/app/build/outputs/bundle/release/*.aab; do
+            mv "$f" "android/app/build/outputs/bundle/release/GSD-MCH-v${VERSION}-build${BUILD_NUMBER}.aab"
+          done
+          ls -l android/app/build/outputs/apk/release android/app/build/outputs/bundle/release
+
     artifacts:
       - android/app/build/outputs/bundle/release/*.aab
       - android/app/build/outputs/apk/release/*.apk
