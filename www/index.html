@@ -141,6 +141,91 @@
     text-shadow: none;
   }
 
+  /* Neutral (light) theme: the active bottom-bar tab is plain green, with no glow or shadow */
+  :root[data-theme="neutral"] .tab-btn,
+  :root[data-theme="neutral"] .tab-btn span{
+    text-shadow: none;
+  }
+  :root[data-theme="neutral"] .tab-btn.active{
+    color: var(--pink);
+  }
+  :root[data-theme="neutral"] .tab-btn.active svg{
+    filter: none;
+  }
+
+  /* Neutral (light) theme: no glow on any text; coloured glows on objects become
+     soft light-grey shadows that give a sense of depth */
+  :root[data-theme="neutral"]{
+    --elevation-1: 0 1px 2px rgba(60,70,65,0.10), 0 1px 3px rgba(60,70,65,0.08);
+    --elevation-2: 0 1px 2px rgba(60,70,65,0.10), 0 3px 8px rgba(60,70,65,0.10);
+    --elevation-3: 0 2px 4px rgba(60,70,65,0.10), 0 8px 20px rgba(60,70,65,0.12);
+    --elevation-4: 0 3px 6px rgba(60,70,65,0.12), 0 12px 28px rgba(60,70,65,0.14);
+    --elevation-5: 0 4px 10px rgba(60,70,65,0.14), 0 18px 40px rgba(60,70,65,0.16);
+    --glow-grey-sm: 0 1px 4px rgba(60,70,65,0.22);
+    --glow-grey: 0 3px 10px rgba(60,70,65,0.20);
+    --glow-grey-hover: 0 5px 16px rgba(60,70,65,0.28);
+  }
+  :root[data-theme="neutral"] *{
+    text-shadow: none !important;
+  }
+  :root[data-theme="neutral"] .tally-badge,
+  :root[data-theme="neutral"] .compact-tally-inner,
+  :root[data-theme="neutral"] .pick-btn{
+    box-shadow: var(--glow-grey);
+  }
+  :root[data-theme="neutral"] .item.done .check,
+  :root[data-theme="neutral"] .step.done .check,
+  :root[data-theme="neutral"] .check-locked,
+  :root[data-theme="neutral"] .step.next .check{
+    box-shadow: var(--glow-grey-sm);
+  }
+  :root[data-theme="neutral"] .picker{
+    box-shadow: var(--elevation-3), var(--glow-grey);
+  }
+  :root[data-theme="neutral"] .picker.compact{
+    box-shadow: var(--elevation-2), var(--glow-grey-sm);
+  }
+  :root[data-theme="neutral"] .fab{
+    box-shadow: var(--elevation-3), var(--glow-grey);
+  }
+  :root[data-theme="neutral"] .pick-btn:hover:not(:disabled),
+  :root[data-theme="neutral"] .clear-btn:hover,
+  :root[data-theme="neutral"] .filter-btn:hover{
+    box-shadow: var(--glow-grey-hover);
+  }
+  :root[data-theme="neutral"] .fab:hover{
+    box-shadow: var(--elevation-4), var(--glow-grey-hover);
+  }
+  :root[data-theme="neutral"] .pick-btn:disabled,
+  :root[data-theme="neutral"] .clear-btn:disabled{
+    box-shadow: none;
+  }
+  :root[data-theme="neutral"] .tutorial-spotlight{
+    box-shadow: 0 0 0 9999px rgba(8,3,18,0.74);
+  }
+
+  /* Neutral (light) theme: "Clear completed" and "Hide completed" use single flat
+     colours (no translucent tints or gradients) */
+  :root[data-theme="neutral"] .clear-btn{
+    background: #e2edfd;
+    border-color: #acccf8;
+  }
+  :root[data-theme="neutral"] .clear-btn:hover:not(:disabled){
+    background: #d3e4fb;
+  }
+  :root[data-theme="neutral"] .filter-btn{
+    background: #e6ebfa;
+    border-color: #b7c5f1;
+  }
+  :root[data-theme="neutral"] .filter-btn:hover:not(.active){
+    background: #d9e0f7;
+  }
+  :root[data-theme="neutral"] .filter-btn.active{
+    background: var(--lav);
+    color: var(--btn-ink-a);
+    border-color: var(--lav);
+  }
+
   /* Neutral (light) theme: flat colour on the theme toggle in settings */
   :root[data-theme="neutral"] .theme-option.active{
     background: var(--pink);
@@ -232,6 +317,7 @@
     border-radius: var(--shape-full);
     white-space: nowrap;
   }
+  .swipe-legend-chip strong{ font-weight: 700; }
   .swipe-legend-icon{ width:13px; height:13px; flex:0 0 auto; }
   .swipe-legend-add{ background: linear-gradient(120deg, var(--cyan), var(--mint)); color:var(--btn-ink-b); }
   .swipe-legend-remove{ background: linear-gradient(120deg, var(--pink), var(--lav)); color:var(--btn-ink-a); }
@@ -1441,18 +1527,6 @@
     </div>
   </div>
 
-  <div class="splash" id="allTasksSplash" hidden>
-    <div class="splash-inner">
-      <img id="allTasksSplashGif" alt="A little cartoon cat celebrating" />
-      <h2>All done!</h2>
-      <p>Everything in All Tasks is complete.</p>
-      <div class="splash-actions">
-        <button type="button" id="allTasksSplashKeep">Keep all tasks and go back</button>
-        <button type="button" class="btn-secondary" id="allTasksSplashClear">Clear all tasks and go back</button>
-      </div>
-    </div>
-  </div>
-
   <div class="page" id="pageToday">
   <header id="appHeader">
     <div class="header-row">
@@ -1463,7 +1537,7 @@
       <div class="tally-badge" id="tally">&hellip;</div>
     </div>
     <p class="swipe-legend" id="todaySwipeLegend">
-      <span class="swipe-legend-chip swipe-legend-remove">Swipe left to remove from Today<svg class="swipe-legend-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 12H6M11 6l-6 6 6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+      <span class="swipe-legend-chip swipe-legend-remove"><span>Swipe left on a task to remove from <strong>Today</strong></span><svg class="swipe-legend-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 12H6M11 6l-6 6 6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
     </p>
   </header>
 
@@ -1503,8 +1577,8 @@
       <h1>All Tasks</h1>
       <p class="subtitle">A Place for all your tasks</p>
       <p class="swipe-legend" id="allTasksSwipeLegend">
-        <span class="swipe-legend-chip swipe-legend-add"><svg class="swipe-legend-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Swipe right to add to Today</span>
-        <span class="swipe-legend-chip swipe-legend-remove">Swipe left to remove from Today<svg class="swipe-legend-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 12H6M11 6l-6 6 6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+        <span class="swipe-legend-chip swipe-legend-add"><svg class="swipe-legend-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Swipe right on a task to add to <strong>Today</strong></span></span>
+        <span class="swipe-legend-chip swipe-legend-remove"><span>Swipe left on a task to remove from <strong>Today</strong></span><svg class="swipe-legend-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 12H6M11 6l-6 6 6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
       </p>
     </header>
 
@@ -1569,7 +1643,7 @@
       <h1>Templates</h1>
       <p class="subtitle">Task templates that you can add to Today</p>
       <p class="swipe-legend">
-        <span class="swipe-legend-chip swipe-legend-add"><svg class="swipe-legend-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Swipe right to add to Today</span>
+        <span class="swipe-legend-chip swipe-legend-add"><svg class="swipe-legend-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Swipe right on a task to add to <strong>Today</strong></span></span>
       </p>
     </header>
 
@@ -1585,7 +1659,7 @@
       <div class="settings-row">
         <div class="settings-row-text">
           <span class="settings-row-label">Completed celebration screen</span>
-          <span class="settings-row-desc">Show the celebration screen when every task on Today (or every task in All Tasks) is checked off.</span>
+          <span class="settings-row-desc">Show the celebration screen when every task on Today is checked off.</span>
         </div>
         <button type="button" class="toggle-switch" id="toggleCelebration" role="switch" aria-checked="true" aria-label="Show completed celebration screen">
           <span class="toggle-switch-knob"></span>
@@ -1602,6 +1676,17 @@
         </div>
       </div>
 
+      <div class="settings-row settings-row-stacked">
+        <div class="settings-row-text">
+          <span class="settings-row-label">App Icon</span>
+        </div>
+        <div class="theme-picker" id="appIconPicker" role="radiogroup" aria-label="App Icon">
+          <button type="button" class="theme-option" data-icon-choice="vibrant" role="radio" aria-checked="false">Synth Wave</button>
+          <button type="button" class="theme-option" data-icon-choice="light" role="radio" aria-checked="false">Light</button>
+          <button type="button" class="theme-option" data-icon-choice="rainbow" role="radio" aria-checked="false">Rainbow</button>
+        </div>
+      </div>
+
       <div class="settings-row">
         <div class="settings-row-text">
           <span class="settings-row-label">Tips</span>
@@ -1611,7 +1696,7 @@
       </div>
     </div>
 
-    <p class="version-tag">v1.2.5</p>
+    <p class="version-tag">v1.2.6</p>
     <p class="credit-line">Inspired by a video by Simone Giertz,<br>please check out <a class="credit-link" href="https://www.youtube.com/@simonegiertz" target="_blank" rel="noopener noreferrer">her channel</a></p>
     <p class="support-line">This app is free and ad-free, but you can<br><a class="credit-link" href="https://ko-fi.com/getstuffdone" target="_blank" rel="noopener noreferrer">buy me a coffee here</a></p>
   </div>
@@ -1636,7 +1721,7 @@
     <span>All Tasks</span>
   </button>
   <button type="button" class="tab-btn" data-page="templates" aria-label="Templates">
-    <svg viewBox="0 0 24 24" fill="none"><rect x="6" y="3" width="14" height="14" rx="3" stroke="currentColor" stroke-width="2"/><path d="M4 9v10a2 2 0 0 0 2 2h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 2h4.5L13 5.5V13a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z"/><path d="M9.5 2v3.5H13"/><path d="M13 6h1.5a2 2 0 0 1 2 2v8.5a2 2 0 0 1-2 2H8.5a2 2 0 0 1-2-2V15"/><path d="M16.5 9.5H18a2 2 0 0 1 2 2V19a2 2 0 0 1-2 2h-6a2 2 0 0 1-2-2v-.5"/></svg>
     <span>Templates</span>
   </button>
   <button type="button" class="tab-btn" data-page="settings" aria-label="Settings">
@@ -1698,7 +1783,7 @@
   const STORAGE_KEY = 'chores:list';
   const TEMPLATES_STORAGE_KEY = 'templates:groups';
   const SETTINGS_STORAGE_KEY = 'settings:prefs';
-  const DEFAULT_SETTINGS = { hideCelebration: false, theme: 'vibrant' };
+  const DEFAULT_SETTINGS = { hideCelebration: false, theme: 'vibrant', appIcon: 'vibrant' };
   const list = document.getElementById('list');
   const tally = document.getElementById('tally');
   const compactTally = document.getElementById('compactTally');
@@ -1729,19 +1814,6 @@
     splash.hidden = true;
   });
 
-  const allTasksSplash = document.getElementById('allTasksSplash');
-  const allTasksSplashGif = document.getElementById('allTasksSplashGif');
-  const allTasksSplashKeep = document.getElementById('allTasksSplashKeep');
-  const allTasksSplashClear = document.getElementById('allTasksSplashClear');
-  allTasksSplashGif.src = "data:image/gif;base64," + CELEBRATE_GIF_BASE64;
-
-  allTasksSplashKeep.addEventListener('click', () => {
-    allTasksSplash.hidden = true;
-  });
-  allTasksSplashClear.addEventListener('click', () => {
-    clearCompleted(c => !!c.section);
-    allTasksSplash.hidden = true;
-  });
   const multiTitle = document.getElementById('multiTitle');
   const multiSteps = document.getElementById('multiSteps');
   const multiHint = document.getElementById('multiHint');
@@ -1769,7 +1841,22 @@
   const toggleCelebration = document.getElementById('toggleCelebration');
   const themePicker = document.getElementById('themePicker');
   const themeOptionBtns = Array.from(themePicker.querySelectorAll('.theme-option'));
+  const appIconPicker = document.getElementById('appIconPicker');
+  const appIconOptionBtns = Array.from(appIconPicker.querySelectorAll('.theme-option'));
   const showTipsBtn = document.getElementById('showTipsBtn');
+
+  // Native alternate icon names (iOS). null = the default (Synth Wave) icon.
+  const APP_ICON_NATIVE_NAMES = { vibrant: null, light: 'AppIconLight', rainbow: 'AppIconRainbow' };
+  function applyAppIcon(choice){
+    try{
+      const plugins = window.Capacitor && window.Capacitor.Plugins;
+      const native = plugins && plugins.AppIcon;
+      if(native && typeof native.setIcon === 'function'){
+        const p = native.setIcon({ name: APP_ICON_NATIVE_NAMES[choice] || null });
+        if(p && typeof p.catch === 'function') p.catch(() => {});
+      }
+    }catch(e){}
+  }
 
   function applyTheme(theme){
     document.documentElement.setAttribute('data-theme', theme === 'neutral' ? 'neutral' : 'vibrant');
@@ -1781,6 +1868,11 @@
     toggleCelebration.setAttribute('aria-checked', String(celebrationOn));
     themeOptionBtns.forEach((btn) => {
       const isActive = btn.dataset.themeChoice === settings.theme;
+      btn.classList.toggle('active', isActive);
+      btn.setAttribute('aria-checked', String(isActive));
+    });
+    appIconOptionBtns.forEach((btn) => {
+      const isActive = btn.dataset.iconChoice === settings.appIcon;
       btn.classList.toggle('active', isActive);
       btn.setAttribute('aria-checked', String(isActive));
     });
@@ -1811,6 +1903,17 @@
     });
   });
 
+  appIconOptionBtns.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const choice = APP_ICON_NATIVE_NAMES.hasOwnProperty(btn.dataset.iconChoice) ? btn.dataset.iconChoice : 'vibrant';
+      if(choice === settings.appIcon) return;
+      settings.appIcon = choice;
+      updateSettingsUI();
+      persistSettings();
+      applyAppIcon(choice);
+    });
+  });
+
   showTipsBtn.addEventListener('click', () => {
     startTutorial();
   });
@@ -1831,7 +1934,6 @@
   let templateGroups = [];
   let saveTimer = null;
   let previousRemaining = null;
-  let previousRemainingAllTasks = null;
   let currentPage = 'today';
   let hideCompletedToday = false;
   let hideCompletedAllTasks = false;
@@ -2025,10 +2127,10 @@
   const TUTORIAL_STORAGE_KEY = 'tutorial:seen';
   const TUTORIAL_STEPS = [
     { page: 'today', selector: '#list', text: 'This is where your tasks for today will be shown.' },
-    { page: 'today', selector: '#pickBtn', text: 'Tap "Pick something for me" to randomly select a task for you to do, don’t forget to check it off once you’ve done it!' },
-    { page: 'today', selector: '#todaySwipeLegend', text: 'Swipe a task to the left to remove it from the Today page, and send it to the All Tasks page.' },
     { page: 'today', selector: '#fabBtn', text: 'Tap the plus button to add a single-step task.' },
     { page: 'today', selector: '#fabMultiBtn', text: 'Tap the multi-step task button to add a task with multiple steps. The randomiser will only use the top step when picking one for you.' },
+    { page: 'today', selector: '#pickBtn', text: 'Tap "Pick something for me" to randomly select a task for you to do, don’t forget to check it off once you’ve done it!' },
+    { page: 'today', selector: '#todaySwipeLegend', text: 'Swipe a task to the left to remove it from the Today page, and send it to the All Tasks page.' },
     { page: 'today', selector: '.tab-btn[data-page="allTasks"]', text: 'Tap here to go to All Tasks, these could be tasks that need to be done, but not today.' },
     { page: 'allTasks', selector: '.swipe-wrap[data-chore-id="tutorial-demo-task"]', fallbackSelector: '#allTasksSwipeLegend', text: 'You can swipe tasks right to add them to your Today page, and swipe left to remove them from your Today page.' },
     { page: 'today', selector: '.tab-btn[data-page="templates"]', text: 'Tap here to go to Task Templates, these could be recurring tasks that you can add to Today whenever you need them.' }
@@ -2407,18 +2509,6 @@
     allTasksFilterBtn.classList.toggle('active', hideCompletedAllTasks);
     allTasksFilterBtnIcon.innerHTML = hideCompletedAllTasks ? EYE_ICON : EYE_SLASH_ICON;
 
-    let remainingAllTasks = 0;
-    allTaskChores.forEach(chore => {
-      if(chore.steps){
-        remainingAllTasks += chore.steps.filter(s => !s.done).length;
-      } else if(!chore.done){
-        remainingAllTasks += 1;
-      }
-    });
-    if(currentPage === 'allTasks' && previousRemainingAllTasks !== null && previousRemainingAllTasks > 0 && remainingAllTasks === 0 && allTaskChores.length > 0 && !settings.hideCelebration){
-      allTasksSplash.hidden = false;
-    }
-    previousRemainingAllTasks = remainingAllTasks;
   }
 
   function makeDragHandle(chore){
