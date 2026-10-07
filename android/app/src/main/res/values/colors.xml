@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Same deep purple as capacitor.config.json / iOS backgroundColor -->
+    <color name="gsd_background">#180b2e</color>
+    <!-- Colour of the splash artwork's edge, so the Android 12+ system splash blends in -->
+    <color name="gsd_splash_background">#1d0c37</color>
+    <color name="colorPrimary">#180b2e</color>
+    <color name="colorPrimaryDark">#180b2e</color>
+    <color name="colorAccent">#ff6eb4</color>
+</resources>

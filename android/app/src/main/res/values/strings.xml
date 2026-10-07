@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Get Stuff Done</string>
+    <string name="title_activity_main">Get Stuff Done</string>
+    <string name="package_name">com.getstuffdone.gsdmch</string>
+    <string name="custom_url_scheme">com.getstuffdone.gsdmch</string>
+</resources>

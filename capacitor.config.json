@@ -6,6 +6,9 @@
   "ios": {
     "backgroundColor": "#180b2e"
   },
+  "android": {
+    "backgroundColor": "#180b2e"
+  },
   "server": {
     "androidScheme": "https"
   },

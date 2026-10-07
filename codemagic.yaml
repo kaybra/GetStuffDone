@@ -87,3 +87,60 @@ workflows:
         notify:
           success: true
           failure: true
+
+  android-play-bundle:
+    name: GSD MCH - Android (Play .aab)
+    max_build_duration: 30
+    instance_type: linux_x2
+
+    # Started by hand from the Codemagic dashboard (Start new build > pick this
+    # workflow), so it doesn't spend minutes on every push the way the iOS one
+    # does. To build on every push to main instead, add the same `triggering:`
+    # block the iOS workflow uses.
+
+    environment:
+      # "gsd_mch_upload_keystore" is the reference name you give the upload
+      # keystore under Codemagic Team settings > Code signing identities >
+      # Android keystores. Codemagic then provides CM_KEYSTORE_PATH,
+      # CM_KEYSTORE_PASSWORD, CM_KEY_ALIAS and CM_KEY_PASSWORD, which
+      # android/app/build.gradle reads to sign the release bundle.
+      android_signing:
+        - gsd_mch_upload_keystore
+      vars:
+        PACKAGE_NAME: "com.getstuffdone.gsdmch"
+      node: 20
+      java: 17
+
+    scripts:
+      - name: Install npm dependencies
+        script: npm install
+
+      - name: Sync web app into the Android project
+        script: npx cap sync android
+
+      - name: Build signed release bundle (.aab)
+        script: |
+          cd android
+          chmod +x ./gradlew
+          # BUILD_NUMBER becomes the Play versionCode; the version name is
+          # package.json's "version", the same number iOS uses.
+          ./gradlew bundleRelease -PversionCode="$BUILD_NUMBER"
+
+    artifacts:
+      - android/app/build/outputs/bundle/release/*.aab
+
+    publishing:
+      email:
+        recipients:
+          - keironb@gmail.com
+        notify:
+          success: true
+          failure: true
+      # Turn this on once the first release has been uploaded by hand in Play
+      # Console and a Google service account exists (create a "google_play"
+      # variable group holding GCLOUD_SERVICE_ACCOUNT_CREDENTIALS, then add
+      # `groups: [google_play]` under environment above).
+      # google_play:
+      #   credentials: $GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
+      #   track: internal
+      #   submit_as_draft: true
