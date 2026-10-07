@@ -141,38 +141,40 @@ def main():
         mono_done = True
 
     # ---- splash ---------------------------------------------------------------
-    splash = Image.open(os.path.join(ROOT, "resources/splash.png")).convert("RGB")
+    # Built from the CURRENT icon glyph (icons/icon-vibrant.png) on the app's purple,
+    # so the launch splash always matches the home-screen icon.
+    vsrc = np.asarray(load("icons/icon-vibrant.png").convert("RGB")).astype(float)
+    alpha = np.clip((vsrc[..., 1] - 45) / 55, 0, 1)
+    ys, xs = np.where(alpha > 0.5)
+    box = (xs.min(), ys.min(), xs.max() + 1, ys.max() + 1)
+    glyph = Image.new("RGBA", (vsrc.shape[1], vsrc.shape[0]), (255, 110, 180, 0))
+    glyph.putalpha(Image.fromarray((alpha * 255).astype("uint8")))
+    glyph = glyph.crop(box)
+    BG = (0x18, 0x0b, 0x2e, 255)
+
+    def place(size, px, bg):
+        c = Image.new("RGBA", size, bg)
+        k = px / max(glyph.size)
+        g = glyph.resize((round(glyph.width * k), round(glyph.height * k)), Image.LANCZOS)
+        c.alpha_composite(g, ((size[0] - g.width) // 2, (size[1] - g.height) // 2))
+        return c
+
     sizes = {"": 480, "-port-mdpi": 480, "-port-hdpi": 800, "-port-xhdpi": 1280, "-port-xxhdpi": 1600,
              "-port-xxxhdpi": 1920}
-    # portrait splash = centre crop of the square art at 9:16-ish; landscape = 16:9-ish crop
-    S = splash.width
     for suffix, longside in sizes.items():
         short = round(longside * 9 / 16)
-        port = splash.crop(((S - round(S * 9 / 16)) // 2, 0, (S + round(S * 9 / 16)) // 2, S)).resize((short, longside), Image.LANCZOS)
-        save(port, RES, f"drawable{suffix}", "splash.png")
+        save(place((short, longside), round(short * 0.42), BG).convert("RGB"), RES, f"drawable{suffix}", "splash.png")
     for dens, longside in {"mdpi": 480, "hdpi": 800, "xhdpi": 1280, "xxhdpi": 1600, "xxxhdpi": 1920}.items():
         short = round(longside * 9 / 16)
-        land = splash.crop((0, (S - round(S * 9 / 16)) // 2, S, (S + round(S * 9 / 16)) // 2)).resize((longside, short), Image.LANCZOS)
-        save(land, RES, f"drawable-land-{dens}", "splash.png")
-
-    # splash icon for Android 12+ (system splash): the dice tile on transparent, sized to fit the circular mask
-    arr = np.asarray(splash).astype(int)
-    pink = (arr[..., 0] > 150) & (arr[..., 2] > 150)          # the light tile vs the dark background
-    ys, xs = np.where(pink)
-    tile = splash.crop((xs.min(), ys.min(), xs.max() + 1, ys.max() + 1))
-    canvas = Image.new("RGBA", (960, 960), (0, 0, 0, 0))
-    t = tile.resize((440, 440), Image.LANCZOS).convert("RGBA")
-    canvas.paste(t, (260, 260))
-    save(canvas, RES, "drawable-nodpi", "splash_icon.png")
-    print("splash background sample:", "#%02x%02x%02x" % splash.getpixel((40, splash.height // 2)))
+        save(place((longside, short), round(short * 0.42), BG).convert("RGB"), RES, f"drawable-land-{dens}", "splash.png")
+    # Android 12+ system splash icon: glyph on transparent, inside the circular mask
+    save(place((960, 960), 400, (0, 0, 0, 0)), RES, "drawable-nodpi", "splash_icon.png")
 
     # ---- Play Store assets ----------------------------------------------------
     vib = load("icons/icon-vibrant.png")
     save(vib.resize((512, 512), Image.LANCZOS), STORE, "play-store-icon-512.png")
     fg = Image.new("RGB", (1024, 500))
-    band_h = 700                                      # top-left of the splash: background only, no tile
-    band = splash.crop((0, 0, round(band_h * 1024 / 500), band_h)).resize((1024, 500), Image.LANCZOS)
-    fg.paste(band, (0, 0))
+    fg.paste((0x18, 0x0b, 0x2e), (0, 0, 1024, 500))
     d = ImageDraw.Draw(fg)
     icon = vib.resize((260, 260), Image.LANCZOS).convert("RGBA"); icon.putalpha(round_mask(260, 0.22))
     fg.paste(icon, (130, 120), icon)

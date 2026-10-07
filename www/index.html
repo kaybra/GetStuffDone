@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Roboto+Flex:opsz,wght@8..144,700&display=swap" rel="stylesheet">
+<script>try{if(window.Capacitor&&window.Capacitor.getPlatform&&window.Capacitor.getPlatform()==='android'){document.documentElement.classList.add('android-native');}}catch(e){}</script>
 <style>
   :root{
     /* Page background is now the LIGHTER surface, with task cards and
@@ -38,6 +39,8 @@
     --line: rgba(var(--ink-rgb),0.12);
     --radius: 14px;
     --kb-inset: 0px;
+    --sat: env(safe-area-inset-top, 0px);
+    --sab: env(safe-area-inset-bottom, 0px);
     --tabbar-height: 60px;
 
     --font-family: 'Roboto', sans-serif;
@@ -248,7 +251,7 @@
     color: var(--ink);
     display:flex;
     justify-content:center;
-    padding: calc(10px + env(safe-area-inset-top, 0px)) 14px 44px;
+    padding: calc(10px + var(--sat)) 14px 44px;
     position: relative;
     overflow-x: hidden;
   }
@@ -258,7 +261,7 @@
     max-width: 440px;
     position: relative;
     z-index: 1;
-    padding-bottom: calc(90px + var(--tabbar-height) + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(90px + var(--tabbar-height) + var(--sab));
   }
 
   /* Header (title, subtitle, chore-count badge, swipe legend) now sits
@@ -350,7 +353,7 @@
 
   .picker{
     position: sticky;
-    top: env(safe-area-inset-top, 0px);
+    top: var(--sat);
     z-index: 20;
     background: linear-gradient(155deg, var(--card), var(--card-2));
     border-radius: var(--radius);
@@ -838,7 +841,7 @@
   .fab{
     position: absolute;
     right: 18px;
-    bottom: calc(20px + var(--tabbar-height) + env(safe-area-inset-bottom, 0px));
+    bottom: calc(20px + var(--tabbar-height) + var(--sab));
     width: 58px;
     height: 58px;
     border-radius: var(--shape-xl);
@@ -862,7 +865,7 @@
   .fab-secondary{
     position: absolute;
     right: 24px;
-    bottom: calc(92px + var(--tabbar-height) + env(safe-area-inset-bottom, 0px));
+    bottom: calc(92px + var(--tabbar-height) + var(--sab));
     width: 46px;
     height: 46px;
     border-radius: var(--shape-lg);
@@ -904,7 +907,7 @@
     border-radius: var(--shape-xl) var(--shape-xl) 0 0;
     border: 1px solid rgba(var(--hairline-rgb),0.1);
     border-bottom: none;
-    padding: 10px 20px calc(24px + env(safe-area-inset-bottom, 0px));
+    padding: 10px 20px calc(24px + var(--sab));
     box-shadow: var(--elevation-5);
     opacity: 0;
     transition: opacity 0.2s ease-out, transform 0.2s ease-out;
@@ -1072,8 +1075,8 @@
     bottom: 0;
     width: 100%;
     max-width: 440px;
-    height: calc(var(--tabbar-height) + env(safe-area-inset-bottom, 0px));
-    padding-bottom: env(safe-area-inset-bottom, 0px);
+    height: calc(var(--tabbar-height) + var(--sab));
+    padding-bottom: var(--sab);
     display: flex;
     background: linear-gradient(180deg, rgba(var(--card-rgb),0.92), rgba(var(--bg-rgb),0.98));
     -webkit-backdrop-filter: blur(10px);
@@ -1158,7 +1161,7 @@
     padding: 4px 2px 12px;
     margin: 4px 0 14px;
     position: sticky;
-    top: env(safe-area-inset-top, 0px);
+    top: var(--sat);
     z-index: 15;
     background: rgba(var(--bg-rgb),0.94);
     backdrop-filter: blur(10px);
@@ -1518,6 +1521,13 @@
     .fab, .fab svg, .fab-secondary, .sheet-backdrop, .sheet{ transition:none; }
     .swipe-fg{ transition:none !important; }
   }
+
+  /* Android native shell already pads the WebView for the status/navigation bars
+     (MainActivity), so don't add the system insets a second time here. */
+  html.android-native{ --sat: 0px; --sab: 0px; }
+  /* Phones: let the bottom tab bar run edge to edge instead of stopping at the 440px column
+     (matters when the phone's display size is set to small and the page is wider than 440px). */
+  html.android-native .tabbar{ left: 0; right: 0; transform: none; width: 100%; max-width: none; }
 </style>
 </head>
 <body>
@@ -2097,7 +2107,7 @@
   if(allTasksPickerEl){
     const updateSectionStickyTop = () => {
       const h = allTasksPickerEl.getBoundingClientRect().height;
-      document.documentElement.style.setProperty('--section-sticky-top', 'calc(env(safe-area-inset-top, 0px) + ' + h + 'px)');
+      document.documentElement.style.setProperty('--section-sticky-top', 'calc(var(--sat) + ' + h + 'px)');
     };
     updateSectionStickyTop();
     if(typeof ResizeObserver !== 'undefined'){
