@@ -118,16 +118,19 @@ workflows:
       - name: Sync web app into the Android project
         script: npx cap sync android
 
-      - name: Build signed release bundle (.aab)
+      - name: Build signed release bundle (.aab) and installable APK
         script: |
           cd android
           chmod +x ./gradlew
           # BUILD_NUMBER becomes the Play versionCode; the version name is
           # package.json's "version", the same number iOS uses.
-          ./gradlew bundleRelease -PversionCode="$BUILD_NUMBER"
+          # The .aab is what Play Console takes; the .apk can be installed
+          # straight onto a phone for testing.
+          ./gradlew bundleRelease assembleRelease -PversionCode="$BUILD_NUMBER"
 
     artifacts:
       - android/app/build/outputs/bundle/release/*.aab
+      - android/app/build/outputs/apk/release/*.apk
 
     publishing:
       email:
