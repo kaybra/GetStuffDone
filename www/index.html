@@ -297,9 +297,11 @@
   }
 
   .swipe-legend{
-    display:flex;
-    flex-direction: column;
-    align-items: flex-start;
+    /* One column sized to the widest pill, so every pill in the legend
+       is the same width as the longest one. */
+    display:grid;
+    grid-template-columns: max-content;
+    justify-content: start;
     gap:6px;
     /* No bottom margin now that header itself is a padded card — its
        own bottom padding provides that breathing room, so this only
@@ -307,8 +309,10 @@
     margin: 10px 0 0;
   }
   .swipe-legend-chip{
-    display:inline-flex;
+    display:flex;
     align-items:center;
+    justify-content:center;
+    text-align:center;
     gap:5px;
     font-family: var(--font-family);
     font-weight: 500;
