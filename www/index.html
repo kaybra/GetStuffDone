@@ -238,9 +238,18 @@
 
   html, body{ overflow-anchor: none; }
 
+  /* The page itself never scrolls (or rubber-bands). Scrolling happens inside
+     .app instead, so the list can bounce while the fixed bottom tab bar and
+     floating buttons stay perfectly still. */
+  html, body{
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+
   body{
     margin:0;
-    min-height:100vh;
+    height:100%;
     background:
       radial-gradient(circle at 15% 0%, rgba(var(--pink-rgb),0.16), transparent 45%),
       radial-gradient(circle at 90% 10%, rgba(var(--cyan-rgb),0.14), transparent 40%),
@@ -251,17 +260,30 @@
     color: var(--ink);
     display:flex;
     justify-content:center;
-    padding: calc(10px + var(--sat)) 14px 44px;
+    padding: 0;
     position: relative;
-    overflow-x: hidden;
+    overflow: hidden;
   }
 
   .app{
     width:100%;
-    max-width: 440px;
+    max-width: 468px; /* 440px column + 14px gutters */
+    height: 100%;
     position: relative;
     z-index: 1;
-    padding-bottom: calc(90px + var(--tabbar-height) + var(--sab));
+    /* No top padding on the scroller itself: sticky elements measure their
+       `top` from the content edge, so the 10px + safe-area gap lives on .page. */
+    padding: 0 14px calc(90px + var(--tabbar-height) + var(--sab));
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: none;
+  }
+  /* Always a hair taller than the scroll area so iOS still rubber-bands
+     on short pages (e.g. an empty list). */
+  .app > .page{
+    min-height: calc(100% + 1px);
+    padding-top: calc(10px + var(--sat));
   }
 
   /* Header (title, subtitle, chore-count badge, swipe legend) now sits
@@ -272,11 +294,19 @@
      directly on the page background. */
   header{
     background: linear-gradient(155deg, var(--card), var(--card-2));
-    border-radius: var(--radius);
-    padding: 18px 18px 20px;
-    margin: 0 0 18px;
-    border: 1px solid rgba(var(--hairline-rgb),0.06);
-    box-shadow: var(--elevation-1);
+    /* Full-width bar, mirroring the bottom tab bar: it cancels the .app side
+       gutters (14px) and the page's top gap (10px + safe area) so it runs
+       edge to edge and flush with the top, with the safe-area added back as
+       padding so the title still clears the status bar. */
+    border-radius: 0;
+    padding: calc(18px + 10px + var(--sat)) 32px 20px;
+    margin: calc(-10px - var(--sat)) -14px 18px;
+    border: none;
+    border-bottom: 1px solid rgba(var(--hairline-rgb),0.08);
+    box-shadow: var(--elevation-2);
+    /* Cancels the iOS rubber-band stretch so the top bars never bounce
+       (--bounce-y is set on .app by the scroll handler). */
+    transform: translate3d(0, var(--bounce-y, 0px), 0);
   }
 
   h1{
@@ -356,16 +386,21 @@
     top: var(--sat);
     z-index: 20;
     background: linear-gradient(155deg, var(--card), var(--card-2));
-    border-radius: var(--radius);
-    padding: 22px;
-    margin-bottom: 22px;
-    border: 1px solid rgba(var(--hairline-rgb),0.08);
+    /* Full-width bar like the header and tab bar: cancels the 14px .app side
+       gutters (margin) and adds them back to the side padding so the buttons
+       keep their original width and position. */
+    border-radius: 0;
+    padding: 22px 36px;
+    margin: 0 -14px 22px;
+    border-width: 1px 0;
+    border-style: solid;
+    border-color: rgba(var(--hairline-rgb),0.08);
     box-shadow: var(--elevation-3), 0 0 0 1px rgba(var(--pink-rgb),0.15), 0 0 30px rgba(var(--lav-rgb),0.10);
     overflow: hidden;
     overflow-anchor: none;
     transition: box-shadow 0.15s ease-out;
-    transform: translateZ(0);
-    -webkit-transform: translateZ(0);
+    transform: translate3d(0, var(--bounce-y, 0px), 0);
+    -webkit-transform: translate3d(0, var(--bounce-y, 0px), 0);
     will-change: transform;
   }
   /* Smooth expand/collapse: JS pins the picker's height to the old value,
@@ -384,10 +419,15 @@
     100%{ opacity: 1; }
   }
   .picker.compact{
-    padding: 12px 16px;
+    padding: 12px 30px;
     margin-bottom: 14px;
     box-shadow: var(--elevation-2), 0 0 0 1px rgba(var(--pink-rgb),0.15);
   }
+
+  /* Header and picker bar sit directly against each other: no gap, and the
+     picker's rainbow strip is the only separating line. */
+  header + .picker{ margin-top: -18px; border-top: none; }
+  header:has(+ .picker){ border-bottom: none; box-shadow: none; }
 
   .picker::before{
     content:"";
@@ -1160,11 +1200,15 @@
     width: 20px;
     height: 20px;
     color: var(--ink-dim);
+    /* The arrow shows what a tap does to the group: expanded = points up
+       (tap to minimise), minimised = points down (tap to expand). The
+       artwork points down, so it is flipped while the group is open. */
+    transform: rotate(180deg);
     transition: transform 0.18s ease, color 0.15s ease;
   }
   .section-header:hover .section-chevron{ color: var(--cyan); }
 
-  .task-section.collapsed .section-chevron{ transform: rotate(-90deg); }
+  .task-section.collapsed .section-chevron{ transform: rotate(0deg); }
   .task-section.collapsed .section-header{ border-bottom-color: rgba(var(--mint-rgb),0.25); }
   .task-section.collapsed .section-body{ display: none; }
 
@@ -1725,7 +1769,7 @@
       </div>
     </div>
 
-    <p class="version-tag">v1.2.6</p>
+    <p class="version-tag">v1.2.7</p>
     <p class="credit-line">Inspired by a video by Simone Giertz,<br>please check out <a class="credit-link" href="https://www.youtube.com/@simonegiertz" target="_blank" rel="noopener noreferrer">her channel</a></p>
     <p class="support-line">This app is free and ad-free, but you can<br><a class="credit-link" href="https://ko-fi.com/getstuffdone" target="_blank" rel="noopener noreferrer">buy me a coffee here</a></p>
   </div>
@@ -1750,7 +1794,7 @@
     <span>All Tasks</span>
   </button>
   <button type="button" class="tab-btn" data-page="templates" aria-label="Templates">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 2h4.5L13 5.5V13a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z"/><path d="M9.5 2v3.5H13"/><path d="M13 6h1.5a2 2 0 0 1 2 2v8.5a2 2 0 0 1-2 2H8.5a2 2 0 0 1-2-2V15"/><path d="M16.5 9.5H18a2 2 0 0 1 2 2V19a2 2 0 0 1-2 2h-6a2 2 0 0 1-2-2v-.5"/></svg>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="butt" stroke-linejoin="miter"><path d="M9 16H3V3h12v5"/><rect x="9" y="8" width="12" height="13"/></svg>
     <span>Templates</span>
   </button>
   <button type="button" class="tab-btn" data-page="settings" aria-label="Settings">
@@ -1866,6 +1910,7 @@
   const pagesByName = { today: pageToday, allTasks: pageAllTasks, templates: pageTemplates, settings: pageSettings };
   const tabButtons = Array.from(document.querySelectorAll('.tab-btn'));
   const fabLayer = document.getElementById('fabLayer');
+  const appScroller = document.querySelector('.app');
 
   const toggleCelebration = document.getElementById('toggleCelebration');
   const themePicker = document.getElementById('themePicker');
@@ -2015,6 +2060,11 @@
   }
 
   function setupKeyboardAvoidance(){
+    // Android shell: MainActivity shrinks the WebView to the space above the keyboard, so
+    // bottom-anchored sheets are already flush on it. Lifting them again here would
+    // double up (and drift when the page has been scrolled), so do nothing.
+    if(document.documentElement.classList.contains('android-native')) return;
+
     function applyInset(px){
       const inset = Math.max(0, Math.round(px));
       document.documentElement.style.setProperty('--kb-inset', inset + 'px');
@@ -2141,7 +2191,7 @@
       btn.classList.toggle('active', btn.dataset.page === name);
     });
     fabLayer.hidden = (name !== 'today');
-    window.scrollTo(0, 0);
+    appScroller.scrollTop = 0;
   }
   tabButtons.forEach((btn) => {
     btn.addEventListener('click', () => switchPage(btn.dataset.page));
@@ -2319,7 +2369,22 @@
     }
     compactTicking = false;
   }
-  window.addEventListener('scroll', () => {
+  // Rubber-band guard: while iOS stretches the list past its top/bottom edge,
+  // scrollTop goes out of range. Shift the two top bars by exactly that amount
+  // the other way so they stay put while the cards below bounce.
+  let lastBounceY = 0;
+  function updateBounceOffset(){
+    const max = appScroller.scrollHeight - appScroller.clientHeight;
+    const st = appScroller.scrollTop;
+    const offset = st < 0 ? st : (st > max ? st - max : 0);
+    if(offset !== lastBounceY){
+      lastBounceY = offset;
+      appScroller.style.setProperty('--bounce-y', offset + 'px');
+    }
+  }
+  appScroller.addEventListener('scroll', updateBounceOffset, { passive: true });
+
+  appScroller.addEventListener('scroll', () => {
     if(!compactTicking){
       compactTicking = true;
       window.requestAnimationFrame(updateCompactState);

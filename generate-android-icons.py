@@ -31,6 +31,12 @@ ICONS = {
 }
 DENSITIES = {"mdpi": 1, "hdpi": 1.5, "xhdpi": 2, "xxhdpi": 3, "xxxhdpi": 4}
 GLYPH_SCALE = 0.70          # glyph size inside the 108dp adaptive layer (safe zone = 66%)
+# The launcher only shows the central 72dp of the 108dp adaptive layer (72/108), and
+# masks it to a circle/squircle. The rainbow icon is made of six equal stripes, so the
+# whole source picture (stripes + glyph) is shrunk into that visible window and the
+# first/last stripe colours are extended outwards; otherwise the mask cuts off the red
+# and purple stripes and the rest look uneven.
+VISIBLE_FRAC = 72 / 108
 
 
 def load(path):
@@ -43,6 +49,12 @@ def build_background(img, kind):
     h, w, _ = a.shape
     if kind == "_rainbow":
         col = a[:, 8, :]                      # glyph never reaches x=8
+        inner = max(2, round(h * VISIBLE_FRAC))
+        idx = np.clip(((np.arange(inner) + 0.5) * h / inner).astype(int), 0, h - 1)
+        col_in = col[idx]                     # six stripes squeezed into the visible window
+        top = (h - inner) // 2
+        col = np.concatenate([np.repeat(col_in[:1], top, axis=0), col_in,
+                              np.repeat(col_in[-1:], h - inner - top, axis=0)])
         bg = np.repeat(col[:, None, :], w, axis=1)
     else:
         # linear diagonal gradient: colour depends on t=(x+y)/(w+h-2)
@@ -81,9 +93,9 @@ def glyph_layer(img, bg, kind):
     return Image.fromarray(rgba, "RGBA")
 
 
-def fit_foreground(glyph, size):
-    """Place the 1024px glyph layer on a transparent size x size canvas at GLYPH_SCALE."""
-    g = glyph.resize((round(size * GLYPH_SCALE),) * 2, Image.LANCZOS)
+def fit_foreground(glyph, size, scale=GLYPH_SCALE):
+    """Place the 1024px glyph layer on a transparent size x size canvas at `scale`."""
+    g = glyph.resize((round(size * scale),) * 2, Image.LANCZOS)
     canvas = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     off = (size - g.width) // 2
     canvas.paste(g, (off, off), g)
@@ -128,7 +140,7 @@ def main():
             legacy = round(48 * mult)
             folder = f"mipmap-{dens}"
             save(bg.resize((layer, layer), Image.LANCZOS), RES, folder, f"ic_launcher_background{suffix}.png")
-            save(fit_foreground(glyph, layer), RES, folder, f"ic_launcher_foreground{suffix}.png")
+            save(fit_foreground(glyph, layer, VISIBLE_FRAC if suffix == "_rainbow" else GLYPH_SCALE), RES, folder, f"ic_launcher_foreground{suffix}.png")
             full = img.resize((legacy, legacy), Image.LANCZOS).convert("RGBA")
             sq = full.copy(); sq.putalpha(round_mask(legacy, 0.18))
             save(sq, RES, folder, f"ic_launcher{suffix}.png")

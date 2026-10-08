@@ -25,9 +25,12 @@ public class MainActivity extends BridgeActivity {
     /**
      * Matches the iOS look: purple status/navigation bars with light icons, and the web content kept
      * clear of the bars. Android 15+ forces edge-to-edge for apps targeting API 35+, so from API 30 up we
-     * opt in explicitly and pad the content by the bar sizes. The keyboard is deliberately NOT padded for:
-     * like iOS ("resize": "none") the web app reads the keyboard height from the Keyboard plugin and lifts
-     * its own sheets.
+     * opt in explicitly and pad the content by the bar sizes.
+     *
+     * The keyboard: while it is showing, the bottom padding grows to the keyboard's height, so the WebView
+     * itself shrinks to the space above the keyboard. The web app's bottom-anchored sheets (Add task etc.)
+     * then sit flush on the keyboard with no height guessing in JavaScript (the web side ignores the
+     * Keyboard plugin's height on Android for the same reason).
      */
     private void setUpSystemBars() {
         final int background = Color.parseColor("#180b2e");
@@ -42,8 +45,12 @@ public class MainActivity extends BridgeActivity {
             content.setBackgroundColor(background);
             ViewCompat.setOnApplyWindowInsetsListener(content, (view, windowInsets) -> {
                 Insets bars = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
-                view.setPadding(bars.left, bars.top, bars.right, bars.bottom);
-                return windowInsets; // not consumed: the Keyboard plugin still needs the IME insets
+                Insets ime = windowInsets.getInsets(WindowInsetsCompat.Type.ime());
+                // The IME inset is measured from the bottom of the screen (it already includes the
+                // navigation bar area), so the larger of the two is the right bottom padding.
+                int bottom = Math.max(bars.bottom, ime.bottom);
+                view.setPadding(bars.left, bars.top, bars.right, bottom);
+                return windowInsets; // not consumed: the Keyboard plugin still reads the IME insets
             });
             ViewCompat.requestApplyInsets(content);
         } else {
