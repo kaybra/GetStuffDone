@@ -383,16 +383,26 @@
 
   .tally-badge{
     flex: 0 0 auto;
-    margin: -6px -6px 0 0;
+    /* Squarer card like the compact bar's tally (same text size as before);
+       no negative right margin so the gap to the screen edge matches the
+       gap left of the "Today" title. */
+    margin: -6px 0 0 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    width: 96px;
+    height: 84px;
     background: transparent;
     border: 1.5px solid var(--pink);
     color: var(--pink);
     font-family: var(--font-family);
     font-weight:700;
     font-size: 1.12rem;
-    padding: 10.5px 18.5px;
-    border-radius: var(--shape-full);
-    white-space: nowrap;
+    line-height: 1.25;
+    text-align: center;
+    padding: 8px 10px;
+    border-radius: var(--shape-lg);
     box-shadow: 0 0 10px rgba(var(--pink-rgb),0.2);
   }
 
@@ -2822,16 +2832,17 @@
 
 
   // ---------- Today activity log + progress chart ----------
-  // Keeps a small log of when Today items were added and ticked off. Items that
-  // already existed before today (or before this feature) are "carried over":
-  // they never count as added today, so the Added line starts at 0.
+  // Keeps a small log of when Today items were added, removed and ticked off.
+  // Items still unfinished from earlier days are "carried over": they form the
+  // starting height (activity.base) of the Today's task count line, which then
+  // goes up as tasks are added and down as unfinished ones are removed.
   const ACTIVITY_KEY = 'activity:log';
-  let activity = { units: null, events: [] };
+  let activity = { units: null, events: [], base: 0, baseDay: 0 };
   try{
     const rawA = localStorage.getItem(ACTIVITY_KEY);
     if(rawA){
       const parsed = JSON.parse(rawA);
-      if(parsed && parsed.units && Array.isArray(parsed.events)) activity = parsed;
+      if(parsed && parsed.units && Array.isArray(parsed.events)) activity = Object.assign({ base: 0, baseDay: 0 }, parsed);
     }
   }catch(e){}
 
@@ -2855,8 +2866,19 @@
       }
     });
 
-    if(activity.units === null){
-      // First run: everything already on Today is carried over.
+    const dayStart0 = startOfToday();
+    const keys = Object.keys(current);
+    if(activity.units === null || activity.baseDay !== dayStart0){
+      if(activity.units !== null && activity.baseDay === 0){
+        // Upgrading from the older log: work back to this morning's starting count.
+        const addsToday = activity.events.filter(e => e.k === 'add' && e.t >= dayStart0).length;
+        activity.base = Math.max(0, keys.length - addsToday);
+      } else {
+        // First run, or a new day: whatever is still unfinished is carried over.
+        activity.base = keys.filter(k => !current[k]).length;
+        activity.events = [];
+      }
+      activity.baseDay = dayStart0;
       activity.units = current;
       saveActivity();
       return;
@@ -2884,7 +2906,13 @@
       }
     });
     // Items that left Today (deleted, cleared, moved) just stop being tracked.
-    Object.keys(activity.units).forEach(key => { if(!(key in current)) changed = true; });
+    Object.keys(activity.units).forEach(key => {
+      if(!(key in current)){
+        // An unfinished task leaving Today lowers the count; finished ones stay counted.
+        if(!activity.units[key]) activity.events.push({ t: now, k: 'rem', u: key });
+        changed = true;
+      }
+    });
 
     // Only today's events are ever charted, so older ones can go.
     const dayStart = startOfToday();
@@ -2908,14 +2936,14 @@
     return d.getHours() + d.getMinutes() / 60 + d.getSeconds() / 3600;
   }
 
-  // Cumulative step-up points [{h, v}] for one event kind, starting at (5:00, 0)
-  // and running to "now".
-  function buildSeries(events, kind, nowH){
-    const pts = [{ h: CHART_START_H, v: 0 }];
-    let v = 0;
-    events.filter(e => e.k === kind).sort((a, b) => a.t - b.t).forEach(e => {
+  // Step points [{h, v}] starting at (5:00, start) and running to "now".
+  // deltas maps an event kind to how much it moves the line (e.g. add: +1, rem: -1).
+  function buildSeries(events, deltas, nowH, start){
+    const pts = [{ h: CHART_START_H, v: start }];
+    let v = start;
+    events.filter(e => e.k in deltas).sort((a, b) => a.t - b.t).forEach(e => {
       const h = Math.min(CHART_END_H, Math.max(CHART_START_H, hoursOfDay(e.t)));
-      v += 1;
+      v = Math.max(0, v + deltas[e.k]);
       pts.push({ h, v });
     });
     const endH = Math.min(CHART_END_H, Math.max(CHART_START_H, nowH));
@@ -2936,7 +2964,7 @@
     return pts[pts.length - 1].v;
   }
 
-  // Points where the Completed line meets/crosses the Added line.
+  // Points where the Completed line meets/crosses the task count line.
   function findMeetings(added, done){
     const times = Array.from(new Set(added.map(p => p.h).concat(done.map(p => p.h)))).sort((a, b) => a - b);
     const out = [];
@@ -2976,7 +3004,7 @@
     ctx.closePath();
   }
 
-  function drawProgressChart(canvas, events, now){
+  function drawProgressChart(canvas, events, now, base){
     const ctx = canvas.getContext('2d');
     const W = canvas.width, H = canvas.height;
     const bg = cssVar('--bg', '#2c1653');
@@ -2998,8 +3026,8 @@
     ctx.fillRect(0, 0, W, H);
 
     const nowH = hoursOfDay(now.getTime());
-    const added = buildSeries(events, 'add', nowH);
-    const done = buildSeries(events, 'done', nowH);
+    const added = buildSeries(events, { add: 1, rem: -1 }, nowH, base || 0);
+    const done = buildSeries(events, { done: 1 }, nowH, 0);
     const addedTotal = added[added.length - 1].v;
     const doneTotal = done[done.length - 1].v;
     const meetings = findMeetings(added, done);
@@ -3025,8 +3053,8 @@
       ctx.fillText(label, x + 24, ly);
       return x + 24 + ctx.measureText(label).width + 34;
     }
-    let lx = legendDot(70, cAdd, 'Added');
-    lx = legendDot(lx, cDone, 'Completed');
+    let lx = legendDot(70, cAdd, "Today's task count");
+    lx = legendDot(lx, cDone, 'Completed today');
     ctx.fillStyle = cStar;
     starPath(ctx, lx + 4, ly - 10, 14, 6); ctx.fill();
     ctx.fillStyle = ink;
@@ -3034,7 +3062,7 @@
 
     // Plot area
     const px0 = 150, px1 = W - 70, py0 = 300, py1 = 920;
-    const maxV = Math.max(1, addedTotal, doneTotal);
+    const maxV = Math.max(1, doneTotal, ...added.map(p => p.v));
     const step = Math.max(1, Math.ceil(maxV / 5));
     const yMax = step * Math.ceil(maxV / step);
     const X = h => px0 + (h - CHART_START_H) / (CHART_END_H - CHART_START_H) * (px1 - px0);
@@ -3107,7 +3135,7 @@
       ctx.restore();
     });
 
-    if(events.length === 0){
+    if(events.length === 0 && !(base > 0)){
       ctx.fillStyle = dim;
       ctx.textAlign = 'center';
       ctx.font = '500 34px ' + fontBody;
@@ -3129,10 +3157,10 @@
     chartNote.textContent = '';
     chartModal.hidden = false;
     void chartModal.offsetHeight;
-    drawProgressChart(chartCanvas, todays, new Date());
+    drawProgressChart(chartCanvas, todays, new Date(), activity.base);
     // Redraw once web fonts are ready so the image uses the app fonts.
     if(document.fonts && document.fonts.ready){
-      document.fonts.ready.then(() => { if(!chartModal.hidden) drawProgressChart(chartCanvas, todays, new Date()); });
+      document.fonts.ready.then(() => { if(!chartModal.hidden) drawProgressChart(chartCanvas, todays, new Date(), activity.base); });
     }
     window.requestAnimationFrame(() => chartModal.classList.add('show'));
   }
