@@ -385,8 +385,10 @@
     flex: 0 0 auto;
     /* Squarer card like the compact bar's tally (same text size as before);
        no negative right margin so the gap to the screen edge matches the
-       gap left of the "Today" title. */
-    margin: -6px 0 0 0;
+       gap left of the "Today" title. The 4px top margin (on top of the
+       header's 12px padding) makes the gap above the badge equal the
+       16px side gap. */
+    margin: 4px 0 0 0;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1040,18 +1042,23 @@
   #multiSheet .multi-draft .multi-head input:focus{ border-bottom-color: var(--cyan); }
   #multiSheet .multi-draft .multi-head input::placeholder{ color: var(--ink-dim); }
   #multiSheet .multi-draft .steps{ max-height: 26vh; overflow-y: auto; }
-  #multiSheet .multi-draft .steps:empty{ display: none; }
   #multiSheet .multi-draft .step .check{ cursor: default; }
   #multiSheet .multi-draft .step .check svg{ display: none; }
-  #multiSheet .multi-draft .add-step-row input{
+  /* Each draft step is its own input line (3 are open to start with; blank
+     ones are ignored on save). */
+  #multiSheet .multi-draft .step input{
+    flex: 1;
+    min-width: 0;
+    width: auto;
     background: rgba(0,0,0,0.18);
     border: 1px dashed var(--line);
     border-radius: var(--shape-sm);
-    font-size: 0.86rem;
+    font-size: 0.9rem;
     padding: 7px 10px;
-    width: auto;
   }
-  #multiSheet .multi-draft .add-step-row input:focus{ border-color: var(--cyan); }
+  #multiSheet .multi-draft .step input:focus{ border-color: var(--cyan); }
+  #multiSheet .multi-draft .step input::placeholder{ color: var(--ink-dim); }
+  #multiSheet .multi-draft .multi-add-line{ flex: 0 0 auto; }
   #multiSheet .hint{ font-size: 0.76rem; color: var(--ink-dim); margin: -4px 0 0; }
   #multiSheet .row{ display:flex; gap: 8px; margin-top: 4px; }
   #multiSheet .row button{
@@ -1919,7 +1926,7 @@
     <p class="chart-note" id="chartNote"></p>
     <div class="chart-actions">
       <button type="button" class="chart-close" id="chartClose">Close</button>
-      <button type="button" class="chart-share" id="chartShare">Share image</button>
+      <button type="button" class="chart-share" id="chartShare">Share</button>
     </div>
   </div>
 </div>
@@ -1940,14 +1947,11 @@
   <h3>Add a multi-step task</h3>
   <div class="item multi multi-draft">
     <div class="multi-head">
-      <input id="multiTitle" type="text" placeholder="Task name (e.g. Deep clean kitchen)" maxlength="80" autocomplete="off">
+      <input id="multiTitle" type="text" placeholder="Task name (e.g. Deep clean kitchen)" maxlength="80" autocomplete="off" enterkeyhint="next">
       <span class="multi-progress" id="multiDraftCount">0 steps</span>
     </div>
     <div class="steps" id="multiDraftSteps"></div>
-    <div class="add-step-row">
-      <input id="multiStepInput" type="text" placeholder="Add a step…" maxlength="100" autocomplete="off" enterkeyhint="done">
-      <button type="button" id="multiStepAddBtn" aria-label="Add step">+</button>
-    </div>
+    <button type="button" class="section-add-btn multi-add-line" id="multiStepAddBtn">+ Add another step</button>
   </div>
   <textarea id="multiSteps" hidden></textarea>
   <p class="hint" id="multiHint">Only the first unfinished step will ever come up in the random pick.</p>
@@ -2196,13 +2200,20 @@
     // double up (and drift when the page has been scrolled), so do nothing.
     if(document.documentElement.classList.contains('android-native')) return;
 
+    let lastKbInset = 0;
     function applyInset(px){
       const inset = Math.max(0, Math.round(px));
       document.documentElement.style.setProperty('--kb-inset', inset + 'px');
+      // Tell the rest of the app when the keyboard goes away (e.g. the user
+      // minimised it) so things hidden "while typing" can come back.
+      if(lastKbInset > 0 && inset === 0) window.dispatchEvent(new Event('gsd-keyboard-hide'));
+      lastKbInset = inset;
     }
 
     const capKeyboard = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Keyboard;
     if(capKeyboard){
+      capKeyboard.addListener('keyboardWillHide', () => window.dispatchEvent(new Event('gsd-keyboard-hide')));
+      capKeyboard.addListener('keyboardDidHide', () => window.dispatchEvent(new Event('gsd-keyboard-hide')));
       capKeyboard.addListener('keyboardWillShow', (info) => applyInset(info && info.keyboardHeight || 0));
       capKeyboard.addListener('keyboardDidShow', (info) => applyInset(info && info.keyboardHeight || 0));
       capKeyboard.addListener('keyboardWillHide', () => applyInset(0));
@@ -2262,6 +2273,39 @@
       timers.forEach(clearTimeout);
       // Keep the extra room briefly so tapping "+" doesn't jump the page.
       setTimeout(() => { if(!activeInput) root.classList.remove('step-editing'); }, 250);
+    });
+    // Keyboard minimised (back gesture / keyboard's hide button): the input can
+    // stay focused, or even be gone after a re-render, so end editing
+    // explicitly or the tab bar and add buttons would stay hidden.
+    function endStepEditing(){
+      timers.forEach(clearTimeout);
+      const el = activeInput;
+      activeInput = null;
+      if(el && document.body.contains(el)) el.blur();
+      root.classList.remove('step-editing');
+    }
+    window.addEventListener('gsd-keyboard-hide', endStepEditing);
+    // On Android the native shell shrinks the WebView above the keyboard (and
+    // the Keyboard plugin path above doesn't run), so watch the viewport
+    // height: when it grows back, the keyboard has gone away.
+    let maxViewH = window.innerHeight;
+    let kbWasUp = false;
+    function checkKeyboardGone(){
+      const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+      maxViewH = Math.max(maxViewH, h, window.innerHeight);
+      const up = h < maxViewH - 120;
+      if(kbWasUp && !up) window.dispatchEvent(new Event('gsd-keyboard-hide'));
+      kbWasUp = up;
+    }
+    window.addEventListener('resize', checkKeyboardGone);
+    if(window.visualViewport) window.visualViewport.addEventListener('resize', checkKeyboardGone);
+    // Tapping blank space (anything that isn't a step/edit input or the "+"
+    // button) also finishes editing and brings the bars back.
+    document.addEventListener('click', (e) => {
+      if(!root.classList.contains('step-editing')) return;
+      const t = e.target;
+      if(isStepInput(t) || (t.closest && t.closest('.add-step-row'))) return;
+      endStepEditing();
     });
     if(window.visualViewport){
       window.visualViewport.addEventListener('resize', () => { if(activeInput) scheduleReveal(); });
@@ -3043,25 +3087,8 @@
     const dateStr = now.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
     ctx.fillText(dateStr, 70, 166);
 
-    // Legend
-    const ly = 232;
-    function legendDot(x, color, label){
-      ctx.fillStyle = color;
-      ctx.beginPath(); ctx.arc(x, ly - 10, 11, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = ink;
-      ctx.font = '500 30px ' + fontBody;
-      ctx.fillText(label, x + 24, ly);
-      return x + 24 + ctx.measureText(label).width + 34;
-    }
-    let lx = legendDot(70, cAdd, "Today's task count");
-    lx = legendDot(lx, cDone, 'Completed today');
-    ctx.fillStyle = cStar;
-    starPath(ctx, lx + 4, ly - 10, 14, 6); ctx.fill();
-    ctx.fillStyle = ink;
-    ctx.fillText('Caught up', lx + 24, ly);
-
     // Plot area
-    const px0 = 150, px1 = W - 70, py0 = 300, py1 = 920;
+    const px0 = 150, px1 = W - 70, py0 = 240, py1 = 920;
     const maxV = Math.max(1, doneTotal, ...added.map(p => p.v));
     const step = Math.max(1, Math.ceil(maxV / 5));
     const yMax = step * Math.ceil(maxV / step);
@@ -3142,6 +3169,29 @@
       ctx.fillText('Nothing added or ticked off yet today', (px0 + px1) / 2, (py0 + py1) / 2 - 20);
     }
 
+    // Legend, centred along the bottom under the time-of-day labels
+    const ly = 1040;
+    const legendItems = [
+      { color: cAdd, label: "Today's task count" },
+      { color: cDone, label: 'Completed today' },
+      { color: cStar, label: 'Caught up', star: true }
+    ];
+    ctx.textAlign = 'left';
+    ctx.font = '500 30px ' + fontBody;
+    const GAP = 34, TEXT_OFF = 24;
+    const legendWidth = legendItems.reduce((sum, it, i) => sum + TEXT_OFF + ctx.measureText(it.label).width + (i < legendItems.length - 1 ? GAP : 0), 0);
+    let lx = (W - legendWidth) / 2 + 4;
+    legendItems.forEach((it) => {
+      ctx.fillStyle = it.color;
+      if(it.star){
+        starPath(ctx, lx + 4, ly - 10, 14, 6); ctx.fill();
+      } else {
+        ctx.beginPath(); ctx.arc(lx, ly - 10, 11, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.fillStyle = ink;
+      ctx.fillText(it.label, lx + TEXT_OFF, ly);
+      lx += TEXT_OFF + ctx.measureText(it.label).width + GAP;
+    });
   }
 
   const chartModal = document.getElementById('chartModal');
@@ -4372,63 +4422,92 @@
     }
   });
 
-  // Multi-step add sheet: visual draft card (title + step list + add row).
-  // multiSteps (hidden textarea) stays the source of truth for saving.
-  const multiStepInput = document.getElementById('multiStepInput');
+  // Multi-step add sheet: draft card with 3 step lines open to start with.
+  // Blank lines are ignored on save. multiSteps (hidden textarea) is the
+  // source of truth for saving; it only ever holds the non-blank lines.
   const multiStepAddBtn = document.getElementById('multiStepAddBtn');
   const multiDraftSteps = document.getElementById('multiDraftSteps');
   const multiDraftCount = document.getElementById('multiDraftCount');
+  const DRAFT_START_LINES = 3;
   let draftSteps = [];
 
-  function renderDraft(){
-    multiSteps.value = draftSteps.join('\n');
-    multiDraftCount.textContent = draftSteps.length === 1 ? '1 step' : draftSteps.length + ' steps';
+  function syncDraft(){
+    const filled = draftSteps.map(t => t.trim()).filter(Boolean);
+    multiSteps.value = filled.join('\n');
+    multiDraftCount.textContent = filled.length === 1 ? '1 step' : filled.length + ' steps';
+  }
+  function focusDraftLine(i){
+    const inputs = multiDraftSteps.querySelectorAll('input');
+    if(inputs[i]) inputs[i].focus();
+  }
+  function renderDraft(focusIndex){
     multiDraftSteps.innerHTML = '';
     draftSteps.forEach((text, i) => {
       const row = document.createElement('div');
-      row.className = 'step' + (i === 0 ? ' next' : '');
+      row.className = 'step';
       const check = document.createElement('span');
       check.className = 'check';
       check.innerHTML = checkSvg();
-      const label = document.createElement('span');
-      label.className = 'text';
-      label.textContent = text;
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.value = text;
+      input.placeholder = 'Step ' + (i + 1);
+      input.maxLength = 100;
+      input.autocomplete = 'off';
+      input.setAttribute('enterkeyhint', i === draftSteps.length - 1 ? 'enter' : 'next');
+      input.addEventListener('input', () => { draftSteps[i] = input.value; syncDraft(); });
+      input.addEventListener('keydown', (e) => {
+        if(e.key === 'Enter' || e.keyCode === 13){
+          e.preventDefault();
+          if(i === draftSteps.length - 1){ draftSteps.push(''); renderDraft(i + 1); }
+          else focusDraftLine(i + 1);
+        }
+      });
+      input.addEventListener('paste', (e) => {
+        // Pasting several lines fills this line and the ones after it.
+        const txt = (e.clipboardData && e.clipboardData.getData('text')) || '';
+        if(txt.indexOf('\n') === -1) return;
+        e.preventDefault();
+        const lines = txt.split(/\r?\n/).map(t => t.trim()).filter(Boolean);
+        if(!lines.length) return;
+        draftSteps.splice(i, 1, ...lines);
+        renderDraft(i + lines.length - 1);
+      });
       const del = document.createElement('button');
       del.type = 'button';
       del.className = 'del step-del';
-      del.setAttribute('aria-label', 'Delete step');
+      del.setAttribute('aria-label', 'Remove step line');
       del.textContent = '\u00d7';
-      del.addEventListener('click', () => { draftSteps.splice(i, 1); renderDraft(); });
+      del.addEventListener('click', () => {
+        draftSteps.splice(i, 1);
+        while(draftSteps.length < DRAFT_START_LINES) draftSteps.push('');
+        renderDraft();
+      });
       row.appendChild(check);
-      row.appendChild(label);
+      row.appendChild(input);
       row.appendChild(del);
       multiDraftSteps.appendChild(row);
     });
-    multiDraftSteps.scrollTop = multiDraftSteps.scrollHeight;
-  }
-  function commitDraftStep(){
-    const lines = multiStepInput.value.split('\n').map(t => t.trim()).filter(Boolean);
-    if(!lines.length) return false;
-    lines.forEach(t => draftSteps.push(t));
-    multiStepInput.value = '';
-    renderDraft();
-    return true;
+    syncDraft();
+    if(typeof focusIndex === 'number') focusDraftLine(focusIndex);
   }
   function resetDraft(){
     draftSteps = [];
-    multiStepInput.value = '';
+    for(let i = 0; i < DRAFT_START_LINES; i++) draftSteps.push('');
     renderDraft();
   }
-  multiStepAddBtn.addEventListener('click', () => { commitDraftStep(); multiStepInput.focus(); });
-  multiStepInput.addEventListener('keydown', (e) => {
-    if(e.key === 'Enter'){ e.preventDefault(); commitDraftStep(); }
+  multiStepAddBtn.addEventListener('click', () => {
+    draftSteps.push('');
+    renderDraft(draftSteps.length - 1);
+    multiDraftSteps.scrollTop = multiDraftSteps.scrollHeight;
   });
-  multiStepInput.addEventListener('paste', () => {
-    // Pasting several lines adds each as its own step.
-    setTimeout(() => { if(multiStepInput.value.indexOf('\n') !== -1) commitDraftStep(); }, 0);
+  // Enter on the task name jumps to the first step line.
+  multiTitle.addEventListener('keydown', (e) => {
+    if(e.key === 'Enter' || e.keyCode === 13){
+      e.preventDefault();
+      focusDraftLine(0);
+    }
   });
-  // Runs before the save handler below: a step typed but not yet "+"-ed still counts.
-  multiSave.addEventListener('click', commitDraftStep);
   resetDraft();
 
   multiCancel.addEventListener('click', () => {
