@@ -39,6 +39,9 @@
     --line: rgba(var(--ink-rgb),0.12);
     --radius: 14px;
     --kb-inset: 0px;
+    /* Side gutter: 14px on narrow screens, wider when the screen is wider than
+       the 440px content column so the column stays centred. */
+    --bleed: max(14px, calc((100vw - 440px) / 2));
     --sat: env(safe-area-inset-top, 0px);
     --sab: env(safe-area-inset-bottom, 0px);
     --tabbar-height: 76px;
@@ -270,13 +273,13 @@
 
   .app{
     width:100%;
-    max-width: 468px; /* 440px column + 14px gutters */
+    max-width: none; /* full width so the top bars can bleed to the screen edge */
     height: 100%;
     position: relative;
     z-index: 1;
     /* No top padding on the scroller itself: sticky elements measure their
        `top` from the content edge, so the 10px + safe-area gap lives on .page. */
-    padding: 0 14px calc(90px + var(--tabbar-height) + var(--sab));
+    padding: 0 var(--bleed) calc(90px + var(--tabbar-height) + var(--sab));
     overflow-x: hidden;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
@@ -302,8 +305,8 @@
        edge to edge and flush with the top, with the safe-area added back as
        padding so the title still clears the status bar. */
     border-radius: 0;
-    padding: calc(18px + 10px + var(--sat)) 32px 20px;
-    margin: calc(-10px - var(--sat)) -14px 18px;
+    padding: calc(18px + 10px + var(--sat)) calc(var(--bleed) + 18px) 20px;
+    margin: calc(-10px - var(--sat)) calc(-1 * var(--bleed)) 18px;
     border: none;
     border-bottom: 1px solid rgba(var(--hairline-rgb),0.08);
     box-shadow: var(--elevation-2);
@@ -393,8 +396,8 @@
        gutters (margin) and adds them back to the side padding so the buttons
        keep their original width and position. */
     border-radius: 0;
-    padding: 22px 36px;
-    margin: 0 -14px 22px;
+    padding: 22px calc(var(--bleed) + 22px);
+    margin: 0 calc(-1 * var(--bleed)) 22px;
     border-width: 1px 0;
     border-style: solid;
     border-color: rgba(var(--hairline-rgb),0.08);
@@ -422,7 +425,7 @@
     100%{ opacity: 1; }
   }
   .picker.compact{
-    padding: 12px 30px;
+    padding: 12px calc(var(--bleed) + 16px);
     margin-bottom: 14px;
     box-shadow: var(--elevation-2), 0 0 0 1px rgba(var(--pink-rgb),0.15);
   }
