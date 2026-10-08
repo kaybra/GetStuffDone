@@ -118,20 +118,23 @@
      swipe actions/badges, and the toggle switch */
   :root[data-theme="neutral"] .add-form button,
   :root[data-theme="neutral"] #multiSheet .save,
-  :root[data-theme="neutral"] .swipe-legend-add,
-  :root[data-theme="neutral"] .today-badge,
   :root[data-theme="neutral"] .tutorial-next,
-  :root[data-theme="neutral"] .swipe-bg-add{
+  :root[data-theme="neutral"] .swipe-legend-remove,
+  :root[data-theme="neutral"] .swipe-bg-remove{
     background: var(--cyan);
   }
   :root[data-theme="neutral"] .pick-btn,
   :root[data-theme="neutral"] .fab,
   :root[data-theme="neutral"] .drag-ghost,
   :root[data-theme="neutral"] .toggle-switch.on,
-  :root[data-theme="neutral"] .swipe-legend-remove,
-  :root[data-theme="neutral"] .swipe-bg-remove{
+  :root[data-theme="neutral"] .swipe-legend-add,
+  :root[data-theme="neutral"] .today-badge,
+  :root[data-theme="neutral"] .swipe-bg-add{
     background: var(--pink);
   }
+  /* In the light theme --pink is green and --cyan is blue. The swipe info
+     pills, the swipe backgrounds and the "On Today" badge use green for
+     "add to Today" and blue for "remove from Today". */
 
   /* Neutral (light) theme: no glow on the main heading or the subtitle beneath it */
   :root[data-theme="neutral"] h1{
@@ -2383,6 +2386,93 @@
     }
   }
   appScroller.addEventListener('scroll', updateBounceOffset, { passive: true });
+
+  // Android bounce. Android WebViews only show an overscroll effect for the
+  // page itself, and the page no longer scrolls (.app does), so the list
+  // stopped bouncing. Recreate it with touch: when a vertical drag starts at
+  // the top/bottom edge, move the visible page by a damped amount and set
+  // --bounce-y the opposite way so the header/picker stay put (the same
+  // trick the iOS rubber-band guard above uses). iOS is untouched.
+  if(document.documentElement.classList.contains('android-native')){
+    const PULL_MAX = 110;
+    let pullStartX = 0, pullStartY = 0, pullAnchorY = 0;
+    let pullDir = 0;          // 1 = pulling down at top, -1 = pulling up at bottom
+    let pullTracking = false;
+    let pullOffset = 0;
+    let pullAnim = null;
+
+    function visiblePage(){
+      return appScroller.querySelector(':scope > .page:not([hidden])');
+    }
+    function applyPull(d){
+      pullOffset = d;
+      const page = visiblePage();
+      if(page) page.style.transform = d ? 'translate3d(0,' + d + 'px,0)' : '';
+      appScroller.style.setProperty('--bounce-y', (-d) + 'px');
+      lastBounceY = -d;
+    }
+    function damp(raw){
+      const abs = Math.abs(raw);
+      return (raw < 0 ? -1 : 1) * (PULL_MAX * abs) / (PULL_MAX + abs);
+    }
+    function springBack(){
+      if(pullAnim) cancelAnimationFrame(pullAnim);
+      const from = pullOffset;
+      if(!from){ applyPull(0); return; }
+      const t0 = performance.now();
+      const DUR = 320;
+      (function step(now){
+        const p = Math.min(1, (now - t0) / DUR);
+        const ease = 1 - Math.pow(1 - p, 3);
+        applyPull(from * (1 - ease));
+        pullAnim = p < 1 ? requestAnimationFrame(step) : null;
+      })(t0);
+    }
+
+    appScroller.addEventListener('touchstart', (e) => {
+      if(e.touches.length !== 1 || cardDragState) { pullTracking = false; return; }
+      if(pullAnim){ cancelAnimationFrame(pullAnim); pullAnim = null; }
+      pullTracking = true;
+      pullDir = 0;
+      pullStartX = e.touches[0].clientX;
+      pullStartY = e.touches[0].clientY;
+    }, { passive: true });
+
+    appScroller.addEventListener('touchmove', (e) => {
+      if(!pullTracking || cardDragState || e.touches.length !== 1) return;
+      const x = e.touches[0].clientX;
+      const y = e.touches[0].clientY;
+      if(!pullDir){
+        const dx = x - pullStartX;
+        const dy = y - pullStartY;
+        if(Math.abs(dy) < 6 || Math.abs(dy) < Math.abs(dx)) return;
+        const max = appScroller.scrollHeight - appScroller.clientHeight;
+        const st = appScroller.scrollTop;
+        if(dy > 0 && st <= 0) pullDir = 1;
+        else if(dy < 0 && st >= max - 1) pullDir = -1;
+        else return;
+        pullAnchorY = y;
+      }
+      const raw = (y - pullAnchorY) * pullDir;
+      if(raw < 0){
+        // Finger moved back past where the pull began: hand control back to
+        // normal scrolling.
+        if(pullOffset) applyPull(0);
+        pullDir = 0;
+        return;
+      }
+      applyPull(pullDir * damp(raw));
+      if(e.cancelable) e.preventDefault();
+    }, { passive: false });
+
+    function endPull(){
+      pullTracking = false;
+      pullDir = 0;
+      springBack();
+    }
+    appScroller.addEventListener('touchend', endPull, { passive: true });
+    appScroller.addEventListener('touchcancel', endPull, { passive: true });
+  }
 
   appScroller.addEventListener('scroll', () => {
     if(!compactTicking){
