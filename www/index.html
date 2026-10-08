@@ -298,6 +298,15 @@
      border and a soft elevation shadow — so "Today" (and the other
      pages' own headings) reads as its own card rather than floating
      directly on the page background. */
+  /* While a step is being added/edited: hide the tab bar and add scroll room
+     so the input can be lifted right above the keyboard. */
+  html.step-editing .tabbar{ display: none; }
+  /* Slide the add buttons off the right edge while editing; they pop back
+     when editing finishes. */
+  html.step-editing .fab,
+  html.step-editing .fab-secondary{ translate: 120px 0; opacity: 0; pointer-events: none; }
+  html.step-editing .app{ padding-bottom: 60vh; }
+
   header{
     background: linear-gradient(155deg, var(--card), var(--card-2));
     /* Full-width bar, mirroring the bottom tab bar: it cancels the .app side
@@ -305,7 +314,7 @@
        edge to edge and flush with the top, with the safe-area added back as
        padding so the title still clears the status bar. */
     border-radius: 0;
-    padding: calc(18px + 10px + var(--sat)) calc(var(--bleed) + 18px) 20px;
+    padding: calc(2px + 10px + var(--sat)) calc(var(--bleed) + 2px) 14px;
     margin: calc(-10px - var(--sat)) calc(-1 * var(--bleed)) 18px;
     border: none;
     border-bottom: 1px solid rgba(var(--hairline-rgb),0.08);
@@ -374,7 +383,7 @@
 
   .tally-badge{
     flex: 0 0 auto;
-    margin-top: 2px;
+    margin: -6px -6px 0 0;
     background: transparent;
     border: 1.5px solid var(--pink);
     color: var(--pink);
@@ -914,7 +923,7 @@
     justify-content: center;
     cursor: pointer;
     box-shadow: var(--elevation-3), 0 0 24px rgba(var(--pink-rgb),0.4);
-    transition: transform 0.15s ease, box-shadow 0.2s ease;
+    transition: transform 0.15s ease, box-shadow 0.2s ease, translate 0.25s ease, opacity 0.25s ease;
   }
   .fab:hover{ box-shadow: var(--elevation-4), 0 0 28px rgba(var(--cyan-rgb),0.45); }
   .fab:active{ transform: scale(0.94); }
@@ -939,7 +948,7 @@
     justify-content: center;
     cursor: pointer;
     box-shadow: var(--elevation-2);
-    transition: transform 0.15s ease, background 0.15s ease;
+    transition: transform 0.15s ease, background 0.15s ease, translate 0.25s ease, opacity 0.25s ease;
   }
   .fab-secondary:hover{ background: rgba(var(--lav-rgb),0.26); }
   .fab-secondary:active{ transform: scale(0.94); }
@@ -1004,6 +1013,35 @@
     outline:none;
   }
   #multiSheet textarea{ min-height: 96px; resize: vertical; }
+  /* Draft card: mirrors the multi-step card shown in the task list. */
+  #multiSheet .multi-draft{ margin: 0; gap: 10px; }
+  #multiSheet .multi-draft .multi-head input{
+    flex: 1;
+    min-width: 0;
+    background: transparent;
+    border: none;
+    border-bottom: 1px dashed transparent;
+    border-radius: 0;
+    padding: 2px 0;
+    font-family: var(--font-family);
+    font-weight: 500;
+    font-size: 1.02rem;
+  }
+  #multiSheet .multi-draft .multi-head input:focus{ border-bottom-color: var(--cyan); }
+  #multiSheet .multi-draft .multi-head input::placeholder{ color: var(--ink-dim); }
+  #multiSheet .multi-draft .steps{ max-height: 26vh; overflow-y: auto; }
+  #multiSheet .multi-draft .steps:empty{ display: none; }
+  #multiSheet .multi-draft .step .check{ cursor: default; }
+  #multiSheet .multi-draft .step .check svg{ display: none; }
+  #multiSheet .multi-draft .add-step-row input{
+    background: rgba(0,0,0,0.18);
+    border: 1px dashed var(--line);
+    border-radius: var(--shape-sm);
+    font-size: 0.86rem;
+    padding: 7px 10px;
+    width: auto;
+  }
+  #multiSheet .multi-draft .add-step-row input:focus{ border-color: var(--cyan); }
   #multiSheet .hint{ font-size: 0.76rem; color: var(--ink-dim); margin: -4px 0 0; }
   #multiSheet .row{ display:flex; gap: 8px; margin-top: 4px; }
   #multiSheet .row button{
@@ -1593,6 +1631,62 @@
   /* Phones: let the bottom tab bar run edge to edge instead of stopping at the 440px column
      (matters when the phone's display size is set to small and the page is wider than 440px). */
   html.android-native .tabbar{ left: 0; right: 0; transform: none; width: 100%; max-width: none; }
+
+  /* Progress chart popup (tap the task count) */
+  .tally-badge, .compact-tally-inner{ cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  .chart-modal{
+    position: fixed;
+    inset: 0;
+    z-index: 90;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    background: rgba(8,4,18,0.62);
+    opacity: 0;
+    transition: opacity 0.2s ease-out;
+  }
+  .chart-modal[hidden]{ display: none; }
+  .chart-modal.show{ opacity: 1; }
+  .chart-card{
+    width: 100%;
+    max-width: 420px;
+    max-height: 100%;
+    overflow-y: auto;
+    background: linear-gradient(165deg, var(--card), var(--card-2));
+    border: 1px solid rgba(var(--hairline-rgb),0.12);
+    border-radius: var(--shape-xl);
+    box-shadow: var(--elevation-5);
+    padding: 14px;
+    transform: translateY(12px) scale(0.98);
+    transition: transform 0.2s ease-out;
+  }
+  .chart-modal.show .chart-card{ transform: none; }
+  .chart-card canvas{
+    display: block;
+    width: 100%;
+    height: auto;
+    border-radius: var(--shape-lg);
+  }
+  .chart-note{
+    margin: 10px 2px 0;
+    min-height: 1.1em;
+    font-size: 0.76rem;
+    color: var(--ink-dim);
+    text-align: center;
+  }
+  .chart-actions{ display: flex; gap: 8px; margin-top: 10px; }
+  .chart-actions button{
+    flex: 1;
+    border: none;
+    border-radius: var(--shape-full);
+    padding: 11px 14px;
+    font-weight: 500;
+    font-size: 0.92rem;
+    cursor: pointer;
+  }
+  .chart-actions .chart-share{ background: linear-gradient(120deg, var(--cyan), var(--mint)); color: var(--btn-ink-b); }
+  .chart-actions .chart-close{ background: rgba(var(--hairline-rgb),0.08); color: var(--ink); }
 </style>
 </head>
 <body>
@@ -1809,6 +1903,17 @@
   </button>
 </nav>
 
+<div class="chart-modal" id="chartModal" hidden>
+  <div class="chart-card" role="dialog" aria-modal="true" aria-label="Today's progress">
+    <canvas id="chartCanvas" width="1080" height="1080"></canvas>
+    <p class="chart-note" id="chartNote"></p>
+    <div class="chart-actions">
+      <button type="button" class="chart-close" id="chartClose">Close</button>
+      <button type="button" class="chart-share" id="chartShare">Share image</button>
+    </div>
+  </div>
+</div>
+
 <div class="sheet-backdrop" id="sheetBackdrop" hidden></div>
 
 <div class="sheet" id="addSheet" hidden>
@@ -1823,8 +1928,18 @@
 <div class="sheet" id="multiSheet" hidden>
   <div class="sheet-handle"></div>
   <h3>Add a multi-step task</h3>
-  <input id="multiTitle" type="text" placeholder="Task name (e.g. Deep clean kitchen)" maxlength="80">
-  <textarea id="multiSteps" placeholder="One step per line, in order&#10;Wipe counters&#10;Do the dishes&#10;Mop floor&#10;Take out trash"></textarea>
+  <div class="item multi multi-draft">
+    <div class="multi-head">
+      <input id="multiTitle" type="text" placeholder="Task name (e.g. Deep clean kitchen)" maxlength="80" autocomplete="off">
+      <span class="multi-progress" id="multiDraftCount">0 steps</span>
+    </div>
+    <div class="steps" id="multiDraftSteps"></div>
+    <div class="add-step-row">
+      <input id="multiStepInput" type="text" placeholder="Add a step…" maxlength="100" autocomplete="off" enterkeyhint="done">
+      <button type="button" id="multiStepAddBtn" aria-label="Add step">+</button>
+    </div>
+  </div>
+  <textarea id="multiSteps" hidden></textarea>
   <p class="hint" id="multiHint">Only the first unfinished step will ever come up in the random pick.</p>
   <div class="row">
     <button type="button" class="cancel" id="multiCancel">Cancel</button>
@@ -2095,6 +2210,54 @@
     update();
   }
   setupKeyboardAvoidance();
+
+  // Multi-step chores: when a step input (add or edit) is focused, scroll the
+  // list so that input sits just above the keyboard instead of being covered.
+  (function setupStepKeyboardScroll(){
+    const root = document.documentElement;
+    const scroller = document.querySelector('.app');
+    let activeInput = null;
+    let timers = [];
+
+    function isStepInput(el){
+      return el && el.tagName === 'INPUT' && el.closest && (el.closest('.steps') || el.classList.contains('edit-input'));
+    }
+    function reveal(){
+      if(!activeInput || !document.body.contains(activeInput) || !scroller) return;
+      const vv = window.visualViewport;
+      const visibleBottom = vv ? (vv.offsetTop + vv.height) : window.innerHeight;
+      const target = visibleBottom - 14;
+      const rect = activeInput.getBoundingClientRect();
+      const delta = rect.bottom - target;
+      if(delta > 0){
+        scroller.scrollTo({ top: scroller.scrollTop + delta, behavior: 'smooth' });
+      }
+    }
+    function scheduleReveal(){
+      timers.forEach(clearTimeout);
+      // Keyboard animates in and the viewport resizes a moment later, so
+      // re-check a few times.
+      timers = [60, 250, 500].map(ms => setTimeout(reveal, ms));
+    }
+
+    document.addEventListener('focusin', (e) => {
+      if(!isStepInput(e.target)) return;
+      activeInput = e.target;
+      root.classList.add('step-editing');
+      scheduleReveal();
+    });
+    document.addEventListener('focusout', (e) => {
+      if(e.target !== activeInput) return;
+      activeInput = null;
+      timers.forEach(clearTimeout);
+      // Keep the extra room briefly so tapping "+" doesn't jump the page.
+      setTimeout(() => { if(!activeInput) root.classList.remove('step-editing'); }, 250);
+    });
+    if(window.visualViewport){
+      window.visualViewport.addEventListener('resize', () => { if(activeInput) scheduleReveal(); });
+    }
+    window.addEventListener('resize', () => { if(activeInput) scheduleReveal(); });
+  })();
 
   let openSheetEl = null;
   const SHEET_TRANSITION_MS = 200;
@@ -2657,6 +2820,364 @@
     });
   }
 
+
+  // ---------- Today activity log + progress chart ----------
+  // Keeps a small log of when Today items were added and ticked off. Items that
+  // already existed before today (or before this feature) are "carried over":
+  // they never count as added today, so the Added line starts at 0.
+  const ACTIVITY_KEY = 'activity:log';
+  let activity = { units: null, events: [] };
+  try{
+    const rawA = localStorage.getItem(ACTIVITY_KEY);
+    if(rawA){
+      const parsed = JSON.parse(rawA);
+      if(parsed && parsed.units && Array.isArray(parsed.events)) activity = parsed;
+    }
+  }catch(e){}
+
+  function startOfToday(){
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d.getTime();
+  }
+  function saveActivity(){
+    try{ localStorage.setItem(ACTIVITY_KEY, JSON.stringify(activity)); }catch(e){}
+  }
+
+  function syncActivity(){
+    const now = Date.now();
+    const current = {};
+    chores.filter(c => c.onToday).forEach(c => {
+      if(c.steps){
+        c.steps.forEach(st => { current[c.id + ':' + st.id] = !!st.done; });
+      } else {
+        current[c.id] = !!c.done;
+      }
+    });
+
+    if(activity.units === null){
+      // First run: everything already on Today is carried over.
+      activity.units = current;
+      saveActivity();
+      return;
+    }
+
+    let changed = false;
+    Object.keys(current).forEach(key => {
+      if(!(key in activity.units)){
+        activity.events.push({ t: now, k: 'add', u: key });
+        if(current[key]) activity.events.push({ t: now, k: 'done', u: key });
+        changed = true;
+      } else if(activity.units[key] !== current[key]){
+        if(current[key]){
+          activity.events.push({ t: now, k: 'done', u: key });
+        } else {
+          // Un-ticked: drop its latest "done" event.
+          for(let i = activity.events.length - 1; i >= 0; i--){
+            if(activity.events[i].k === 'done' && activity.events[i].u === key){
+              activity.events.splice(i, 1);
+              break;
+            }
+          }
+        }
+        changed = true;
+      }
+    });
+    // Items that left Today (deleted, cleared, moved) just stop being tracked.
+    Object.keys(activity.units).forEach(key => { if(!(key in current)) changed = true; });
+
+    // Only today's events are ever charted, so older ones can go.
+    const dayStart = startOfToday();
+    const kept = activity.events.filter(e => e.t >= dayStart);
+    if(kept.length !== activity.events.length){ activity.events = kept; changed = true; }
+
+    activity.units = current;
+    if(changed) saveActivity();
+  }
+
+  // Chart window: 05:00 -> midnight, in three broad sections.
+  const CHART_START_H = 5, CHART_END_H = 24;
+  const CHART_SECTIONS = [
+    { name: 'Morning',   from: 5,  to: 12 },
+    { name: 'Afternoon', from: 12, to: 17 },
+    { name: 'Evening',   from: 17, to: 24 }
+  ];
+
+  function hoursOfDay(t){
+    const d = new Date(t);
+    return d.getHours() + d.getMinutes() / 60 + d.getSeconds() / 3600;
+  }
+
+  // Cumulative step-up points [{h, v}] for one event kind, starting at (5:00, 0)
+  // and running to "now".
+  function buildSeries(events, kind, nowH){
+    const pts = [{ h: CHART_START_H, v: 0 }];
+    let v = 0;
+    events.filter(e => e.k === kind).sort((a, b) => a.t - b.t).forEach(e => {
+      const h = Math.min(CHART_END_H, Math.max(CHART_START_H, hoursOfDay(e.t)));
+      v += 1;
+      pts.push({ h, v });
+    });
+    const endH = Math.min(CHART_END_H, Math.max(CHART_START_H, nowH));
+    const last = pts[pts.length - 1];
+    if(endH > last.h) pts.push({ h: endH, v: last.v });
+    return pts;
+  }
+
+  function valueAt(pts, h){
+    if(h <= pts[0].h) return pts[0].v;
+    for(let i = 1; i < pts.length; i++){
+      if(h <= pts[i].h){
+        const a = pts[i - 1], b = pts[i];
+        if(b.h === a.h) return b.v;
+        return a.v + (b.v - a.v) * (h - a.h) / (b.h - a.h);
+      }
+    }
+    return pts[pts.length - 1].v;
+  }
+
+  // Points where the Completed line meets/crosses the Added line.
+  function findMeetings(added, done){
+    const times = Array.from(new Set(added.map(p => p.h).concat(done.map(p => p.h)))).sort((a, b) => a - b);
+    const out = [];
+    const EPS = 1e-9;
+    let prev = null;
+    times.forEach(h => {
+      const a = valueAt(added, h), d = valueAt(done, h);
+      const diff = a - d;
+      if(prev){
+        const pd = prev.diff;
+        if(pd > EPS && diff < -EPS || pd < -EPS && diff > EPS){
+          const f = pd / (pd - diff);
+          const hh = prev.h + (h - prev.h) * f;
+          out.push({ h: hh, v: valueAt(added, hh) });
+        } else if(Math.abs(pd) > EPS && Math.abs(diff) <= EPS && a > 0){
+          out.push({ h, v: a });
+        }
+      }
+      prev = { h, diff };
+    });
+    return out;
+  }
+
+  function cssVar(name, fallback){
+    const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    return v || fallback;
+  }
+
+  function starPath(ctx, cx, cy, outer, inner){
+    ctx.beginPath();
+    for(let i = 0; i < 10; i++){
+      const r = i % 2 === 0 ? outer : inner;
+      const ang = -Math.PI / 2 + i * Math.PI / 5;
+      const x = cx + Math.cos(ang) * r, y = cy + Math.sin(ang) * r;
+      if(i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+  }
+
+  function drawProgressChart(canvas, events, now){
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width, H = canvas.height;
+    const bg = cssVar('--bg', '#2c1653');
+    const card = cssVar('--card', '#1b0e33');
+    const ink = cssVar('--ink', '#f3ecff');
+    const dim = cssVar('--ink-dim', 'rgba(243,236,255,0.6)');
+    const cAdd = cssVar('--cyan', '#8ff2ff');
+    const cDone = cssVar('--pink', '#ff9ecd');
+    const cStar = cssVar('--yellow', '#ffe9a8');
+    const lav = cssVar('--lav', '#c9afff');
+    const fontBody = cssVar('--font-family', 'sans-serif');
+    const fontDisp = cssVar('--font-family-display', 'sans-serif');
+
+    // Background
+    const g = ctx.createLinearGradient(0, 0, W, H);
+    g.addColorStop(0, card);
+    g.addColorStop(1, bg);
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+
+    const nowH = hoursOfDay(now.getTime());
+    const added = buildSeries(events, 'add', nowH);
+    const done = buildSeries(events, 'done', nowH);
+    const addedTotal = added[added.length - 1].v;
+    const doneTotal = done[done.length - 1].v;
+    const meetings = findMeetings(added, done);
+
+    // Header
+    ctx.textBaseline = 'alphabetic';
+    ctx.textAlign = 'left';
+    ctx.fillStyle = ink;
+    ctx.font = '700 64px ' + fontDisp;
+    ctx.fillText("Today's progress", 70, 118);
+    ctx.fillStyle = cssVar('--cyan', '#8ff2ff');
+    ctx.font = '500 32px ' + fontBody;
+    const dateStr = now.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
+    ctx.fillText(dateStr, 70, 166);
+
+    // Legend
+    const ly = 232;
+    function legendDot(x, color, label){
+      ctx.fillStyle = color;
+      ctx.beginPath(); ctx.arc(x, ly - 10, 11, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = ink;
+      ctx.font = '500 30px ' + fontBody;
+      ctx.fillText(label, x + 24, ly);
+      return x + 24 + ctx.measureText(label).width + 34;
+    }
+    let lx = legendDot(70, cAdd, 'Added');
+    lx = legendDot(lx, cDone, 'Completed');
+    ctx.fillStyle = cStar;
+    starPath(ctx, lx + 4, ly - 10, 14, 6); ctx.fill();
+    ctx.fillStyle = ink;
+    ctx.fillText('Caught up', lx + 24, ly);
+
+    // Plot area
+    const px0 = 150, px1 = W - 70, py0 = 300, py1 = 920;
+    const maxV = Math.max(1, addedTotal, doneTotal);
+    const step = Math.max(1, Math.ceil(maxV / 5));
+    const yMax = step * Math.ceil(maxV / step);
+    const X = h => px0 + (h - CHART_START_H) / (CHART_END_H - CHART_START_H) * (px1 - px0);
+    const Y = v => py1 - v / yMax * (py1 - py0);
+
+    // Section bands + dividers + labels
+    CHART_SECTIONS.forEach((sec, i) => {
+      if(i % 2 === 1){
+        ctx.fillStyle = 'rgba(255,255,255,0.035)';
+        ctx.fillRect(X(sec.from), py0, X(sec.to) - X(sec.from), py1 - py0);
+      }
+      ctx.fillStyle = dim;
+      ctx.font = '500 30px ' + fontBody;
+      ctx.textAlign = 'center';
+      ctx.fillText(sec.name, (X(sec.from) + X(sec.to)) / 2, py1 + 62);
+    });
+
+    // Y grid + labels
+    ctx.textAlign = 'right';
+    ctx.font = '500 28px ' + fontBody;
+    for(let v = 0; v <= yMax; v += step){
+      const y = Y(v);
+      ctx.strokeStyle = 'rgba(255,255,255,0.10)';
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(px0, y); ctx.lineTo(px1, y); ctx.stroke();
+      ctx.fillStyle = dim;
+      ctx.fillText(String(v), px0 - 18, y + 10);
+    }
+    // Axes
+    ctx.strokeStyle = 'rgba(255,255,255,0.28)';
+    ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(px0, py0); ctx.lineTo(px0, py1); ctx.lineTo(px1, py1); ctx.stroke();
+
+    // "Now" marker
+    if(nowH > CHART_START_H && nowH < CHART_END_H){
+      ctx.setLineDash([8, 10]);
+      ctx.strokeStyle = 'rgba(255,255,255,0.22)';
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(X(nowH), py0); ctx.lineTo(X(nowH), py1); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    function drawLine(pts, color, width){
+      ctx.save();
+      ctx.shadowColor = color;
+      ctx.shadowBlur = 18;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = width;
+      ctx.lineJoin = 'round';
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      pts.forEach((pt, i) => { if(i === 0) ctx.moveTo(X(pt.h), Y(pt.v)); else ctx.lineTo(X(pt.h), Y(pt.v)); });
+      ctx.stroke();
+      ctx.restore();
+      const end = pts[pts.length - 1];
+      ctx.fillStyle = color;
+      ctx.beginPath(); ctx.arc(X(end.h), Y(end.v), width + 3, 0, Math.PI * 2); ctx.fill();
+    }
+    drawLine(added, cAdd, 9);
+    drawLine(done, cDone, 9);
+
+    // Stars where the lines meet
+    meetings.forEach(m => {
+      ctx.save();
+      ctx.shadowColor = cStar;
+      ctx.shadowBlur = 24;
+      ctx.fillStyle = cStar;
+      starPath(ctx, X(m.h), Y(m.v), 30, 13);
+      ctx.fill();
+      ctx.restore();
+    });
+
+    if(events.length === 0){
+      ctx.fillStyle = dim;
+      ctx.textAlign = 'center';
+      ctx.font = '500 34px ' + fontBody;
+      ctx.fillText('Nothing added or ticked off yet today', (px0 + px1) / 2, (py0 + py1) / 2 - 20);
+    }
+
+  }
+
+  const chartModal = document.getElementById('chartModal');
+  const chartCanvas = document.getElementById('chartCanvas');
+  const chartNote = document.getElementById('chartNote');
+  const chartShare = document.getElementById('chartShare');
+  const chartClose = document.getElementById('chartClose');
+
+  function openChart(){
+    syncActivity();
+    const dayStart = startOfToday();
+    const todays = activity.events.filter(e => e.t >= dayStart);
+    chartNote.textContent = '';
+    chartModal.hidden = false;
+    void chartModal.offsetHeight;
+    drawProgressChart(chartCanvas, todays, new Date());
+    // Redraw once web fonts are ready so the image uses the app fonts.
+    if(document.fonts && document.fonts.ready){
+      document.fonts.ready.then(() => { if(!chartModal.hidden) drawProgressChart(chartCanvas, todays, new Date()); });
+    }
+    window.requestAnimationFrame(() => chartModal.classList.add('show'));
+  }
+  function closeChart(){
+    chartModal.classList.remove('show');
+    window.setTimeout(() => { chartModal.hidden = true; }, 200);
+  }
+
+  async function shareChartImage(){
+    const dataUrl = chartCanvas.toDataURL('image/png');
+    const fileName = 'gsd-mch-today.png';
+    try{
+      const plugins = window.Capacitor && window.Capacitor.Plugins;
+      if(plugins && plugins.Share && plugins.Filesystem){
+        const base64 = dataUrl.split(',')[1];
+        const written = await plugins.Filesystem.writeFile({ path: fileName, data: base64, directory: 'CACHE' });
+        await plugins.Share.share({ title: "Today's progress", files: [written.uri] });
+        return;
+      }
+      const blob = await new Promise(res => chartCanvas.toBlob(res, 'image/png'));
+      const file = new File([blob], fileName, { type: 'image/png' });
+      if(navigator.canShare && navigator.canShare({ files: [file] })){
+        await navigator.share({ files: [file], title: "Today's progress" });
+        return;
+      }
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      chartNote.textContent = 'Sharing isn’t available here, so the image was saved instead.';
+    }catch(e){
+      if(e && (e.name === 'AbortError' || /cancel/i.test(String(e.message || e)))) return;
+      chartNote.textContent = 'Couldn’t share the image. Try again.';
+    }
+  }
+
+  tally.addEventListener('click', openChart);
+  compactTallyInner.addEventListener('click', openChart);
+  chartShare.addEventListener('click', shareChartImage);
+  chartClose.addEventListener('click', closeChart);
+  chartModal.addEventListener('click', (e) => { if(e.target === chartModal) closeChart(); });
+  document.addEventListener('keydown', (e) => { if(e.key === 'Escape' && !chartModal.hidden) closeChart(); });
+
   function renderToday(){
     const todayChores = chores.filter(c => c.onToday);
     buildListInto(
@@ -2679,14 +3200,15 @@
 
     let tallyText;
     if(totalItems === 0){
-      tallyText = 'Nothing on the list';
+      tallyText = 'All Done';
     } else if(remaining === 0){
-      tallyText = 'All done, nice work';
+      tallyText = 'All Done';
     } else {
       tallyText = remaining + ' of ' + totalItems + ' left';
     }
     tally.textContent = tallyText;
     compactTallyInner.textContent = tallyText;
+    syncActivity();
 
     pickResult.hidden = true;
     pickEmpty.hidden = remaining > 0;
@@ -3822,9 +4344,68 @@
     }
   });
 
+  // Multi-step add sheet: visual draft card (title + step list + add row).
+  // multiSteps (hidden textarea) stays the source of truth for saving.
+  const multiStepInput = document.getElementById('multiStepInput');
+  const multiStepAddBtn = document.getElementById('multiStepAddBtn');
+  const multiDraftSteps = document.getElementById('multiDraftSteps');
+  const multiDraftCount = document.getElementById('multiDraftCount');
+  let draftSteps = [];
+
+  function renderDraft(){
+    multiSteps.value = draftSteps.join('\n');
+    multiDraftCount.textContent = draftSteps.length === 1 ? '1 step' : draftSteps.length + ' steps';
+    multiDraftSteps.innerHTML = '';
+    draftSteps.forEach((text, i) => {
+      const row = document.createElement('div');
+      row.className = 'step' + (i === 0 ? ' next' : '');
+      const check = document.createElement('span');
+      check.className = 'check';
+      check.innerHTML = checkSvg();
+      const label = document.createElement('span');
+      label.className = 'text';
+      label.textContent = text;
+      const del = document.createElement('button');
+      del.type = 'button';
+      del.className = 'del step-del';
+      del.setAttribute('aria-label', 'Delete step');
+      del.textContent = '\u00d7';
+      del.addEventListener('click', () => { draftSteps.splice(i, 1); renderDraft(); });
+      row.appendChild(check);
+      row.appendChild(label);
+      row.appendChild(del);
+      multiDraftSteps.appendChild(row);
+    });
+    multiDraftSteps.scrollTop = multiDraftSteps.scrollHeight;
+  }
+  function commitDraftStep(){
+    const lines = multiStepInput.value.split('\n').map(t => t.trim()).filter(Boolean);
+    if(!lines.length) return false;
+    lines.forEach(t => draftSteps.push(t));
+    multiStepInput.value = '';
+    renderDraft();
+    return true;
+  }
+  function resetDraft(){
+    draftSteps = [];
+    multiStepInput.value = '';
+    renderDraft();
+  }
+  multiStepAddBtn.addEventListener('click', () => { commitDraftStep(); multiStepInput.focus(); });
+  multiStepInput.addEventListener('keydown', (e) => {
+    if(e.key === 'Enter'){ e.preventDefault(); commitDraftStep(); }
+  });
+  multiStepInput.addEventListener('paste', () => {
+    // Pasting several lines adds each as its own step.
+    setTimeout(() => { if(multiStepInput.value.indexOf('\n') !== -1) commitDraftStep(); }, 0);
+  });
+  // Runs before the save handler below: a step typed but not yet "+"-ed still counts.
+  multiSave.addEventListener('click', commitDraftStep);
+  resetDraft();
+
   multiCancel.addEventListener('click', () => {
     multiTitle.value = '';
-    multiSteps.value = '';
+    resetDraft();
     closeSheet();
   });
 
@@ -3848,7 +4429,7 @@
       });
     }
     multiTitle.value = '';
-    multiSteps.value = '';
+    resetDraft();
     renderAll();
     scheduleSave();
     closeSheet();
