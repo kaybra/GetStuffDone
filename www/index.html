@@ -565,6 +565,17 @@
     border-radius: var(--shape-xl);
   }
 
+  /* Task counter matches the compact "Pick something for me" button:
+     same gradient fill, ink colour, corner shape and glow. */
+  .tally-badge,
+  .compact-tally-inner{
+    background: linear-gradient(120deg, var(--pink), var(--lav));
+    color: var(--btn-ink-a);
+    border: none;
+    border-radius: var(--shape-xl);
+    box-shadow: 0 0 20px rgba(var(--pink-rgb),0.35);
+  }
+
   .clear-btn{
     width:100%;
     display: flex;
