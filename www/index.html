@@ -2304,6 +2304,10 @@
     document.addEventListener('click', (e) => {
       if(!root.classList.contains('step-editing')) return;
       const t = e.target;
+      // The tap that opened an edit box replaced its own target (the task
+      // text) with the input, so it arrives here detached. Ignore it, or
+      // editing would end the instant it started.
+      if(!t.isConnected) return;
       if(isStepInput(t) || (t.closest && t.closest('.add-step-row'))) return;
       endStepEditing();
     });
