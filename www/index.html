@@ -507,6 +507,42 @@
     box-shadow: var(--elevation-2), 0 0 0 1px rgba(var(--pink-rgb),0.15);
   }
 
+
+  /* ---- Fixed top bars (iOS / web) -------------------------------------
+     The header and picker bar live in a fixed stack OUTSIDE the scrolling
+     content, so rubber-banding the list cannot move them at all (no JS
+     correction that arrives a frame late). JS only slides the stack up as
+     the list scrolls (clamped at 0, so overscroll never moves it) and keeps
+     a spacer in the page the same height as the stack. */
+  html.fixed-bars .app > .page{ padding-top: 0; }
+  html.fixed-bars .topstack{
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 20;
+    display: flow-root;
+    pointer-events: none;
+    will-change: transform;
+    transform: translate3d(0, 0, 0);
+  }
+  html.fixed-bars .topstack > header,
+  html.fixed-bars .topstack > .picker{ pointer-events: auto; }
+  html.fixed-bars .topstack-spacer{ width: 100%; pointer-events: none; }
+  html.fixed-bars .topstack > header{
+    margin: 0;
+    transform: none;
+  }
+  html.fixed-bars .topstack > header:last-child{ margin-bottom: 18px; }
+  html.fixed-bars .topstack > .picker{
+    position: relative;
+    top: auto;
+    margin-top: 0;
+    margin-left: 0;
+    margin-right: 0;
+    transform: none;
+    -webkit-transform: none;
+    will-change: auto;
+  }
+
   /* Header and picker bar sit directly against each other: no gap, and the
      picker's rainbow strip is the only separating line. */
   header + .picker{ margin-top: -18px; border-top: none; }
@@ -2501,6 +2537,67 @@
     }
   }
 
+  // ---- Fixed top bars (everything except the Android shell) --------------
+  const FIXED_BARS = !document.documentElement.classList.contains('android-native');
+  const topStacks = [];
+  function setupFixedBars(){
+    if(!FIXED_BARS) return;
+    document.documentElement.classList.add('fixed-bars');
+    Object.values(pagesByName).forEach((page) => {
+      const header = page.querySelector(':scope > header');
+      if(!header) return;
+      const stack = document.createElement('div');
+      stack.className = 'topstack';
+      const spacer = document.createElement('div');
+      spacer.className = 'topstack-spacer';
+      page.insertBefore(stack, header);
+      page.insertBefore(spacer, stack.nextSibling);
+      stack.appendChild(header);
+      const pk = spacer.nextElementSibling;
+      if(pk && pk.classList && pk.classList.contains('picker')) stack.appendChild(pk);
+      const info = { page, stack, spacer, header, picker: stack.querySelector(':scope > .picker'), maxShift: 0 };
+      topStacks.push(info);
+    });
+    const measure = () => topStacks.forEach(measureStack);
+    if(typeof ResizeObserver !== 'undefined'){
+      const ro = new ResizeObserver(measure);
+      topStacks.forEach((s) => { ro.observe(s.stack); ro.observe(s.header); });
+    }
+    window.addEventListener('resize', measure);
+    measure();
+  }
+  function measureStack(s){
+    if(s.page.hidden) return;
+    const total = s.stack.offsetHeight;
+    s.spacer.style.height = total + 'px';
+    const sat = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sat')) || 0;
+    // With a picker bar it stays pinned just under the safe area; a header on
+    // its own scrolls away completely.
+    s.maxShift = s.picker ? Math.max(0, s.header.offsetHeight - sat) : total;
+    positionStack(s);
+  }
+  function positionStack(s){
+    // Clamped at 0: rubber-banding past the top or bottom never moves the bars.
+    const shift = Math.min(Math.max(appScroller.scrollTop, 0), s.maxShift);
+    s.stack.style.transform = 'translate3d(0,' + (-shift) + 'px,0)';
+    if(s.picker){
+      // The picker pins under the safe area, but the header keeps scrolling
+      // up out of sight (as it did when it was part of the list).
+      const extra = Math.min(Math.max(appScroller.scrollTop, 0), s.header.offsetHeight) - shift;
+      s.header.style.transform = extra > 0 ? 'translate3d(0,' + (-extra) + 'px,0)' : 'none';
+    }
+  }
+  function activeStack(){
+    return topStacks.find((s) => !s.page.hidden) || null;
+  }
+  function updateFixedBars(){
+    const s = activeStack();
+    if(s) positionStack(s);
+  }
+  if(FIXED_BARS){
+    appScroller.addEventListener('scroll', updateFixedBars, { passive: true });
+  }
+
   function switchPage(name){
     currentPage = name;
     Object.keys(pagesByName).forEach((key) => {
@@ -2511,10 +2608,12 @@
     });
     fabLayer.hidden = (name !== 'today');
     appScroller.scrollTop = 0;
+    if(FIXED_BARS){ const st = activeStack(); if(st){ measureStack(st); } }
   }
   tabButtons.forEach((btn) => {
     btn.addEventListener('click', () => switchPage(btn.dataset.page));
   });
+  setupFixedBars();
   switchPage('today');
 
   // --- Onboarding tutorial -------------------------------------------------
@@ -2674,7 +2773,11 @@
   let compactTicking = false;
   let lastCompactToggleAt = 0;
   function updateCompactState(){
-    const headerBottom = appHeader.getBoundingClientRect().bottom;
+    // The header now sits in the fixed stack, so work out where its bottom
+    // edge would be if it scrolled with the list.
+    const headerBottom = FIXED_BARS
+      ? appHeader.offsetHeight - appScroller.scrollTop
+      : appHeader.getBoundingClientRect().bottom;
     const isCompact = picker.classList.contains('compact');
     const sinceLastToggle = Date.now() - lastCompactToggleAt;
     if(sinceLastToggle >= COMPACT_TOGGLE_COOLDOWN_MS){
@@ -3467,13 +3570,13 @@
     del.textContent = '×';
     del.addEventListener('click', () => remove(chore.id));
 
+    if(pageContext === 'allTasks'){
+      row.appendChild(makeDragHandle(chore));
+    }
     row.appendChild(check);
     row.appendChild(text);
     if(pageContext === 'allTasks' && chore.onToday){
       row.appendChild(makeTodayBadge());
-    }
-    if(pageContext === 'allTasks'){
-      row.appendChild(makeDragHandle(chore));
     }
     row.appendChild(del);
     return row;
@@ -3502,13 +3605,13 @@
     del.textContent = '×';
     del.addEventListener('click', () => remove(chore.id));
 
+    if(pageContext === 'allTasks'){
+      head.appendChild(makeDragHandle(chore));
+    }
     head.appendChild(title);
     head.appendChild(progress);
     if(pageContext === 'allTasks' && chore.onToday){
       head.appendChild(makeTodayBadge());
-    }
-    if(pageContext === 'allTasks'){
-      head.appendChild(makeDragHandle(chore));
     }
     head.appendChild(del);
     card.appendChild(head);
@@ -3579,6 +3682,8 @@
     const row = document.createElement('div');
     row.className = 'item';
 
+    row.appendChild(makeTemplateDragHandle(item, groupId));
+
     const check = document.createElement('span');
     check.className = 'check check-locked';
     check.setAttribute('aria-hidden', 'true');
@@ -3593,8 +3698,6 @@
     if(templateItemOnToday(item)){
       row.appendChild(makeTodayBadge());
     }
-
-    row.appendChild(makeTemplateDragHandle(item, groupId));
 
     const del = document.createElement('button');
     del.className = 'del';
@@ -3613,6 +3716,8 @@
     const head = document.createElement('div');
     head.className = 'multi-head';
 
+    head.appendChild(makeTemplateDragHandle(item, groupId));
+
     const title = document.createElement('span');
     title.className = 'text';
     title.textContent = item.text;
@@ -3627,8 +3732,6 @@
     if(templateItemOnToday(item)){
       head.appendChild(makeTodayBadge());
     }
-
-    head.appendChild(makeTemplateDragHandle(item, groupId));
 
     const del = document.createElement('button');
     del.className = 'del';
