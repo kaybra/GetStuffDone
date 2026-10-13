@@ -112,27 +112,27 @@
   }
 
   /* Neutral (light) theme: flat, very light grey page background — no gradient, no colour tints */
-  :root[data-theme="neutral"] body{
+  :root:is([data-theme="neutral"],[data-theme="dark"]) body{
     background: var(--bg);
     background-attachment: fixed;
   }
 
   /* Neutral (light) theme: flat colours instead of gradients on primary buttons,
      swipe actions/badges, and the toggle switch */
-  :root[data-theme="neutral"] .add-form button,
-  :root[data-theme="neutral"] #multiSheet .save,
-  :root[data-theme="neutral"] .tutorial-next,
-  :root[data-theme="neutral"] .swipe-legend-remove,
-  :root[data-theme="neutral"] .swipe-bg-remove{
+  :root:is([data-theme="neutral"],[data-theme="dark"]) .add-form button,
+  :root:is([data-theme="neutral"],[data-theme="dark"]) #multiSheet .save,
+  :root:is([data-theme="neutral"],[data-theme="dark"]) .tutorial-next,
+  :root:is([data-theme="neutral"],[data-theme="dark"]) .swipe-legend-remove,
+  :root:is([data-theme="neutral"],[data-theme="dark"]) .swipe-bg-remove{
     background: var(--cyan);
   }
-  :root[data-theme="neutral"] .pick-btn,
-  :root[data-theme="neutral"] .fab,
-  :root[data-theme="neutral"] .drag-ghost,
-  :root[data-theme="neutral"] .toggle-switch.on,
-  :root[data-theme="neutral"] .swipe-legend-add,
-  :root[data-theme="neutral"] .today-badge,
-  :root[data-theme="neutral"] .swipe-bg-add{
+  :root:is([data-theme="neutral"],[data-theme="dark"]) .pick-btn,
+  :root:is([data-theme="neutral"],[data-theme="dark"]) .fab,
+  :root:is([data-theme="neutral"],[data-theme="dark"]) .drag-ghost,
+  :root:is([data-theme="neutral"],[data-theme="dark"]) .toggle-switch.on,
+  :root:is([data-theme="neutral"],[data-theme="dark"]) .swipe-legend-add,
+  :root:is([data-theme="neutral"],[data-theme="dark"]) .today-badge,
+  :root:is([data-theme="neutral"],[data-theme="dark"]) .swipe-bg-add{
     background: var(--pink);
   }
   /* In the light theme --pink is green and --cyan is blue. The swipe info
@@ -140,25 +140,25 @@
      "add to Today" and blue for "remove from Today". */
 
   /* Neutral (light) theme: no glow on the main heading or the subtitle beneath it */
-  :root[data-theme="neutral"] h1{
+  :root:is([data-theme="neutral"],[data-theme="dark"]) h1{
     text-shadow: none;
   }
-  :root[data-theme="neutral"] .subtitle{
+  :root:is([data-theme="neutral"],[data-theme="dark"]) .subtitle{
     text-shadow: none;
   }
-  :root[data-theme="neutral"] .tutorial-step-count{
+  :root:is([data-theme="neutral"],[data-theme="dark"]) .tutorial-step-count{
     text-shadow: none;
   }
 
   /* Neutral (light) theme: the active bottom-bar tab is plain green, with no glow or shadow */
-  :root[data-theme="neutral"] .tab-btn,
-  :root[data-theme="neutral"] .tab-btn span{
+  :root:is([data-theme="neutral"],[data-theme="dark"]) .tab-btn,
+  :root:is([data-theme="neutral"],[data-theme="dark"]) .tab-btn span{
     text-shadow: none;
   }
-  :root[data-theme="neutral"] .tab-btn.active{
+  :root:is([data-theme="neutral"],[data-theme="dark"]) .tab-btn.active{
     color: var(--pink);
   }
-  :root[data-theme="neutral"] .tab-btn.active svg{
+  :root:is([data-theme="neutral"],[data-theme="dark"]) .tab-btn.active svg{
     filter: none;
   }
 
@@ -174,42 +174,72 @@
     --glow-grey: 0 3px 10px rgba(60,70,65,0.20);
     --glow-grey-hover: 0 5px 16px rgba(60,70,65,0.28);
   }
-  :root[data-theme="neutral"] *{
+    /* Dark theme: neutral dark greys, flat colours (no gradients, no text glow),
+     built on the same rules as the Light theme */
+  :root[data-theme="dark"]{
+    --bg: #121212;
+    --bg-2: #121212;
+    --card: #1e1e1e;
+    --card-2: #232323;
+    --ink: #ececec;
+    --ink-dim: #a0a0a0;
+    --pink: #4cc38a;
+    --cyan: #5b9cf5;
+    --lav: #8aa2f2;
+    --mint: #3fcf94;
+    --yellow: #5bbcff;
+    --pink-rgb: 76,195,138;
+    --cyan-rgb: 91,156,245;
+    --lav-rgb: 138,162,242;
+    --mint-rgb: 63,207,148;
+    --yellow-rgb: 91,188,255;
+    --ink-rgb: 236,236,236;
+    --card-rgb: 30,30,30;
+    --bg-rgb: 18,18,18;
+    --hairline-rgb: 255,255,255;
+    --btn-ink-a: #0b1a12;
+    --btn-ink-b: #0b1a12;
+    --glow-grey-sm: 0 1px 4px rgba(0,0,0,0.5);
+    --glow-grey: 0 3px 10px rgba(0,0,0,0.5);
+    --glow-grey-hover: 0 5px 16px rgba(0,0,0,0.6);
+  }
+
+:root:is([data-theme="neutral"],[data-theme="dark"]) *{
     text-shadow: none !important;
   }
-  :root[data-theme="neutral"] .tally-badge,
-  :root[data-theme="neutral"] .compact-tally-inner,
-  :root[data-theme="neutral"] .pick-btn{
+  :root:is([data-theme="neutral"],[data-theme="dark"]) .tally-badge,
+  :root:is([data-theme="neutral"],[data-theme="dark"]) .compact-tally-inner,
+  :root:is([data-theme="neutral"],[data-theme="dark"]) .pick-btn{
     box-shadow: var(--glow-grey);
   }
-  :root[data-theme="neutral"] .item.done .check,
-  :root[data-theme="neutral"] .step.done .check,
-  :root[data-theme="neutral"] .check-locked,
-  :root[data-theme="neutral"] .step.next .check{
+  :root:is([data-theme="neutral"],[data-theme="dark"]) .item.done .check,
+  :root:is([data-theme="neutral"],[data-theme="dark"]) .step.done .check,
+  :root:is([data-theme="neutral"],[data-theme="dark"]) .check-locked,
+  :root:is([data-theme="neutral"],[data-theme="dark"]) .step.next .check{
     box-shadow: var(--glow-grey-sm);
   }
-  :root[data-theme="neutral"] .picker{
+  :root:is([data-theme="neutral"],[data-theme="dark"]) .picker{
     box-shadow: var(--elevation-3), var(--glow-grey);
   }
-  :root[data-theme="neutral"] .picker.compact{
+  :root:is([data-theme="neutral"],[data-theme="dark"]) .picker.compact{
     box-shadow: var(--elevation-2), var(--glow-grey-sm);
   }
-  :root[data-theme="neutral"] .fab{
+  :root:is([data-theme="neutral"],[data-theme="dark"]) .fab{
     box-shadow: var(--elevation-3), var(--glow-grey);
   }
-  :root[data-theme="neutral"] .pick-btn:hover:not(:disabled),
-  :root[data-theme="neutral"] .clear-btn:hover,
-  :root[data-theme="neutral"] .filter-btn:hover{
+  :root:is([data-theme="neutral"],[data-theme="dark"]) .pick-btn:hover:not(:disabled),
+  :root:is([data-theme="neutral"],[data-theme="dark"]) .clear-btn:hover,
+  :root:is([data-theme="neutral"],[data-theme="dark"]) .filter-btn:hover{
     box-shadow: var(--glow-grey-hover);
   }
-  :root[data-theme="neutral"] .fab:hover{
+  :root:is([data-theme="neutral"],[data-theme="dark"]) .fab:hover{
     box-shadow: var(--elevation-4), var(--glow-grey-hover);
   }
-  :root[data-theme="neutral"] .pick-btn:disabled,
-  :root[data-theme="neutral"] .clear-btn:disabled{
+  :root:is([data-theme="neutral"],[data-theme="dark"]) .pick-btn:disabled,
+  :root:is([data-theme="neutral"],[data-theme="dark"]) .clear-btn:disabled{
     box-shadow: none;
   }
-  :root[data-theme="neutral"] .tutorial-spotlight{
+  :root:is([data-theme="neutral"],[data-theme="dark"]) .tutorial-spotlight{
     box-shadow: 0 0 0 9999px rgba(8,3,18,0.74);
   }
 
@@ -235,8 +265,34 @@
     border-color: var(--lav);
   }
 
+  /* Light and Dark themes: the task counters (Today header and collapsed picker bar)
+     and the Share button in the progress chart use flat colours, no gradients */
+  :root:is([data-theme="neutral"],[data-theme="dark"]) .tally-badge,
+  :root:is([data-theme="neutral"],[data-theme="dark"]) .compact-tally-inner{
+    background: var(--pink);
+  }
+  :root:is([data-theme="neutral"],[data-theme="dark"]) .chart-actions .chart-share{
+    background: var(--cyan);
+  }
+
+  /* Dark theme: same flat treatment for Clear / Hide completed (dark tints) */
+  :root[data-theme="dark"] .clear-btn{
+    background: #1c2a40;
+    border-color: #35507a;
+  }
+  :root[data-theme="dark"] .clear-btn:hover:not(:disabled){
+    background: #243652;
+  }
+  :root[data-theme="dark"] .filter-btn{
+    background: #20263f;
+    border-color: #3d4a7c;
+  }
+  :root[data-theme="dark"] .filter-btn:hover:not(.active){
+    background: #29304d;
+  }
+
   /* Neutral (light) theme: flat colour on the theme toggle in settings */
-  :root[data-theme="neutral"] .theme-option.active{
+  :root:is([data-theme="neutral"],[data-theme="dark"]) .theme-option.active{
     background: var(--pink);
   }
 
@@ -1873,6 +1929,7 @@
         </div>
         <div class="theme-picker" id="themePicker" role="radiogroup" aria-label="Theme">
           <button type="button" class="theme-option" data-theme-choice="vibrant" role="radio" aria-checked="false">Synth Wave</button>
+          <button type="button" class="theme-option" data-theme-choice="dark" role="radio" aria-checked="false">Dark</button>
           <button type="button" class="theme-option" data-theme-choice="neutral" role="radio" aria-checked="false">Light</button>
         </div>
       </div>
@@ -1897,7 +1954,7 @@
       </div>
     </div>
 
-    <p class="version-tag">v1.2.7</p>
+    <p class="version-tag">v1.2.8</p>
     <p class="credit-line">Inspired by a video by Simone Giertz,<br>please check out <a class="credit-link" href="https://www.youtube.com/@simonegiertz" target="_blank" rel="noopener noreferrer">her channel</a></p>
     <p class="support-line">This app is free and ad-free, but you can<br><a class="credit-link" href="https://ko-fi.com/getstuffdone" target="_blank" rel="noopener noreferrer">buy me a coffee here</a></p>
   </div>
@@ -2078,8 +2135,12 @@
     }catch(e){}
   }
 
+  function normalizeTheme(theme){
+    return (theme === 'neutral' || theme === 'dark') ? theme : 'vibrant';
+  }
+
   function applyTheme(theme){
-    document.documentElement.setAttribute('data-theme', theme === 'neutral' ? 'neutral' : 'vibrant');
+    document.documentElement.setAttribute('data-theme', normalizeTheme(theme));
   }
 
   function updateSettingsUI(){
@@ -2114,7 +2175,7 @@
 
   themeOptionBtns.forEach((btn) => {
     btn.addEventListener('click', () => {
-      const choice = btn.dataset.themeChoice === 'neutral' ? 'neutral' : 'vibrant';
+      const choice = normalizeTheme(btn.dataset.themeChoice);
       if(choice === settings.theme) return;
       settings.theme = choice;
       applyTheme(choice);
