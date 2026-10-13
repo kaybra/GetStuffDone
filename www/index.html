@@ -2139,8 +2139,28 @@
     return (theme === 'neutral' || theme === 'dark') ? theme : 'vibrant';
   }
 
+  // iOS: tell the native shell which status-bar text colour (light text on the
+  // dark themes, dark text on Light) and overscroll background match the theme.
+  const THEME_CHROME = {
+    vibrant: { lightContent: true,  background: '#180b2e' },
+    dark:    { lightContent: true,  background: '#121212' },
+    neutral: { lightContent: false, background: '#f5f5f5' }
+  };
+  function applyNativeChrome(theme){
+    try{
+      const plugins = window.Capacitor && window.Capacitor.Plugins;
+      const native = plugins && plugins.Chrome;
+      if(native && typeof native.setStyle === 'function'){
+        const p = native.setStyle(THEME_CHROME[theme] || THEME_CHROME.vibrant);
+        if(p && typeof p.catch === 'function') p.catch(() => {});
+      }
+    }catch(e){}
+  }
+
   function applyTheme(theme){
-    document.documentElement.setAttribute('data-theme', normalizeTheme(theme));
+    const t = normalizeTheme(theme);
+    document.documentElement.setAttribute('data-theme', t);
+    applyNativeChrome(t);
   }
 
   function updateSettingsUI(){

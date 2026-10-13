@@ -62,9 +62,13 @@ workflows:
       - name: Apply code signing settings to the Xcode project
         script: xcode-project use-profiles
 
-      - name: Set build number
+      - name: Set version and build number
         script: |
+          # Version name comes from package.json (same number Android uses),
+          # build number from Codemagic's BUILD_NUMBER.
+          VERSION=$(node -p "require('./package.json').version")
           cd ios/App
+          agvtool new-marketing-version "$VERSION"
           agvtool new-version -all "$BUILD_NUMBER"
 
       - name: Build .ipa for App Store distribution
