@@ -2296,16 +2296,30 @@
   let autoScrollRAF = null;
   function autoScrollTick(){
     if(autoScrollPointerY == null){ autoScrollRAF = null; return; }
-    const vh = window.innerHeight;
+    // The list scrolls inside .app (the page itself never scrolls), and the
+    // pinned picker bar covers the top of it, so measure the edges from the
+    // visible part of the scroller: just under the pinned bar, and just above
+    // the tab bar.
+    let top = 0;
+    const bar = appScroller.querySelector(':scope > .page:not([hidden]) .picker');
+    if(bar){
+      const r = bar.getBoundingClientRect();
+      const sat = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sat')) || 0;
+      if(r.top <= sat + 2) top = r.bottom;
+    }
+    let bottom = window.innerHeight;
+    const tb = document.querySelector('.tabbar');
+    if(tb) bottom = Math.min(bottom, tb.getBoundingClientRect().top);
     let dy = 0;
-    if(autoScrollPointerY < AUTOSCROLL_EDGE){
-      dy = -AUTOSCROLL_MAX_SPEED * (1 - autoScrollPointerY / AUTOSCROLL_EDGE);
-    } else if(autoScrollPointerY > vh - AUTOSCROLL_EDGE){
-      dy = AUTOSCROLL_MAX_SPEED * (1 - (vh - autoScrollPointerY) / AUTOSCROLL_EDGE);
+    if(autoScrollPointerY < top + AUTOSCROLL_EDGE){
+      dy = -AUTOSCROLL_MAX_SPEED * Math.min(1, 1 - (autoScrollPointerY - top) / AUTOSCROLL_EDGE);
+    } else if(autoScrollPointerY > bottom - AUTOSCROLL_EDGE){
+      dy = AUTOSCROLL_MAX_SPEED * Math.min(1, 1 - (bottom - autoScrollPointerY) / AUTOSCROLL_EDGE);
     }
     if(dy !== 0){
-      window.scrollBy(0, dy);
-      if(autoScrollOnMove) autoScrollOnMove();
+      const before = appScroller.scrollTop;
+      appScroller.scrollTop = before + dy;
+      if(appScroller.scrollTop !== before && autoScrollOnMove) autoScrollOnMove();
     }
     autoScrollRAF = requestAnimationFrame(autoScrollTick);
   }
