@@ -2290,10 +2290,20 @@
     btn.addEventListener('click', () => {
       const choice = APP_ICON_NATIVE_NAMES.hasOwnProperty(btn.dataset.iconChoice) ? btn.dataset.iconChoice : 'vibrant';
       if(choice === settings.appIcon) return;
-      settings.appIcon = choice;
-      updateSettingsUI();
-      persistSettings();
-      applyAppIcon(choice);
+      const commitIcon = () => {
+        settings.appIcon = choice;
+        updateSettingsUI();
+        persistSettings();
+        applyAppIcon(choice);
+      };
+      // Android launchers close the app when the icon changes, so warn first.
+      let isAndroidNative = false;
+      try{ isAndroidNative = !!(window.Capacitor && window.Capacitor.getPlatform && window.Capacitor.getPlatform() === 'android'); }catch(e){}
+      if(isAndroidNative){
+        confirmDelete('Change app icon?', 'The app needs to close to change its icon.', commitIcon, 'Close app and change icon');
+      }else{
+        commitIcon();
+      }
     });
   });
 
@@ -2549,9 +2559,10 @@
   const confirmOkBtn = document.getElementById('confirmOk');
   const confirmCancelBtn = document.getElementById('confirmCancel');
   let confirmAction = null;
-  function confirmDelete(title, message, onConfirm){
+  function confirmDelete(title, message, onConfirm, okLabel){
     confirmTitle.textContent = title;
     confirmMessage.textContent = message;
+    confirmOkBtn.textContent = okLabel || 'Delete';
     confirmAction = onConfirm;
     openSheet(confirmSheet, confirmCancelBtn);
   }
