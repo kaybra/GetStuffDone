@@ -347,6 +347,10 @@
     min-height: calc(100% + 1px);
     padding-top: calc(10px + var(--sat));
   }
+  /* Compacting the top bar shrinks the spacer above the list. Without this the
+     browser "helpfully" scrolls to compensate, which makes the bar think the
+     user scrolled back up and re-expand. */
+  .app, .app > .page, .topstack-spacer{ overflow-anchor: none; }
 
   /* Header (title, subtitle, chore-count badge, swipe legend) now sits
      on the same card treatment as .item/.picker/.settings-row — a
@@ -1176,6 +1180,23 @@
   #multiSheet .save{ background: linear-gradient(120deg, var(--cyan), var(--mint)); color:var(--btn-ink-b); }
   #multiSheet .cancel{ background: rgba(var(--hairline-rgb),0.08); color: var(--ink); }
 
+  #confirmSheet{ display: flex; flex-direction: column; gap: 10px; }
+  #confirmSheet[hidden]{ display: none; }
+  #confirmSheet h3{ margin-bottom: 0; }
+  #confirmSheet .hint{ font-size: 0.88rem; color: var(--ink-dim); margin: 0 0 6px; line-height: 1.4; }
+  #confirmSheet .row{ display:flex; gap: 8px; margin-top: 4px; }
+  #confirmSheet .row button{
+    flex:1;
+    border:none;
+    border-radius: var(--shape-full);
+    padding: 11px 14px;
+    font-weight: 500;
+    font-size: 0.92rem;
+    cursor:pointer;
+  }
+  #confirmSheet .cancel{ background: rgba(var(--hairline-rgb),0.08); color: var(--ink); }
+  #confirmSheet .danger{ background: var(--pink); color: var(--btn-ink-b); }
+
   .status-line{
     text-align:center;
     color: rgba(var(--ink-rgb),0.35);
@@ -1423,6 +1444,9 @@
     margin-top: 6px;
   }
   .add-group-btn:hover{ border-color: var(--cyan); color: var(--cyan); }
+  /* Custom groups on All Tasks stick below the All Tasks bar, like the
+     built-in groups, rather than at the very top like Templates groups. */
+  .custom-section .section-header-row{ top: var(--section-sticky-top, 0px); }
 
   .section-add-row{
     display:flex;
@@ -1929,6 +1953,10 @@
         </div>
       </div>
     </section>
+
+    <div id="customSections"></div>
+
+    <button type="button" class="add-group-btn" id="addCustomSectionBtn">+ Add group</button>
   </div>
 
   <div class="page" id="pageTemplates" hidden>
@@ -2005,6 +2033,10 @@
   </button>
 </div>
 
+<div class="fab-layer" id="collapseFabLayer" hidden>
+  <button type="button" class="fab collapse-fab" id="collapseAllBtn" aria-label="Collapse all groups"></button>
+</div>
+
 <nav class="tabbar" id="tabbar">
   <button type="button" class="tab-btn" data-page="today" aria-label="Today">
     <svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5l2.9 6.1 6.6.9-4.8 4.7 1.1 6.6L12 17.7l-5.8 3.1 1.1-6.6-4.8-4.7 6.6-.9 2.9-6.1z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
@@ -2067,10 +2099,20 @@
 
 <div class="sheet" id="groupSheet" hidden>
   <div class="sheet-handle"></div>
-  <h3>New group</h3>
+  <h3 id="groupSheetTitle">New group</h3>
   <div class="add-form" id="groupForm">
     <input id="groupNameInput" type="text" placeholder="Group name (e.g. Morning routine)" maxlength="60" autocomplete="off">
     <button type="button" id="groupSaveBtn">Add</button>
+  </div>
+</div>
+
+<div class="sheet" id="confirmSheet" role="alertdialog" aria-labelledby="confirmTitle" aria-describedby="confirmMessage" hidden>
+  <div class="sheet-handle"></div>
+  <h3 id="confirmTitle">Delete?</h3>
+  <p class="hint" id="confirmMessage"></p>
+  <div class="row">
+    <button type="button" class="cancel" id="confirmCancel">Cancel</button>
+    <button type="button" class="danger" id="confirmOk">Delete</button>
   </div>
 </div>
 
@@ -2094,6 +2136,8 @@
   try{
   const STORAGE_KEY = 'chores:list';
   const TEMPLATES_STORAGE_KEY = 'templates:groups';
+  const CUSTOM_SECTIONS_STORAGE_KEY = 'allTasks:customGroups';
+  const BUILTIN_SECTIONS = ['priority', 'week', 'month'];
   const SETTINGS_STORAGE_KEY = 'settings:prefs';
   const DEFAULT_SETTINGS = { hideCelebration: false, theme: 'vibrant', appIcon: 'vibrant' };
   const list = document.getElementById('list');
@@ -2149,6 +2193,8 @@
   const pagesByName = { today: pageToday, allTasks: pageAllTasks, templates: pageTemplates, settings: pageSettings };
   const tabButtons = Array.from(document.querySelectorAll('.tab-btn'));
   const fabLayer = document.getElementById('fabLayer');
+  const collapseFabLayer = document.getElementById('collapseFabLayer');
+  const collapseAllBtn = document.getElementById('collapseAllBtn');
   const appScroller = document.querySelector('.app');
 
   const toggleCelebration = document.getElementById('toggleCelebration');
@@ -2266,9 +2312,15 @@
 
   const templateGroupsContainer = document.getElementById('templateGroups');
   const addGroupBtn = document.getElementById('addGroupBtn');
+  const customSectionsContainer = document.getElementById('customSections');
+  const addCustomSectionBtn = document.getElementById('addCustomSectionBtn');
+  const groupSheetTitle = document.getElementById('groupSheetTitle');
 
   let chores = [];
   let templateGroups = [];
+  let customSections = [];            // user-made groups on All Tasks: [{ id, name }]
+  let collapsedCustomSections = new Set();
+  let groupSheetMode = 'template';    // which page the shared "New group" sheet is adding to
   let saveTimer = null;
   let previousRemaining = null;
   let currentPage = 'today';
@@ -2450,7 +2502,7 @@
       // text) with the input, so it arrives here detached. Ignore it, or
       // editing would end the instant it started.
       if(!t.isConnected) return;
-      if(isStepInput(t) || (t.closest && t.closest('.add-step-row'))) return;
+      if(isStepInput(t) || (t.closest && t.closest('.add-step-row, .multi-add-line'))) return;
       endStepEditing();
     });
     if(window.visualViewport){
@@ -2490,6 +2542,73 @@
     }, SHEET_TRANSITION_MS);
   }
 
+  // Bottom-sheet "are you sure?" used before deleting multi-step tasks and groups.
+  const confirmSheet = document.getElementById('confirmSheet');
+  const confirmTitle = document.getElementById('confirmTitle');
+  const confirmMessage = document.getElementById('confirmMessage');
+  const confirmOkBtn = document.getElementById('confirmOk');
+  const confirmCancelBtn = document.getElementById('confirmCancel');
+  let confirmAction = null;
+  function confirmDelete(title, message, onConfirm){
+    confirmTitle.textContent = title;
+    confirmMessage.textContent = message;
+    confirmAction = onConfirm;
+    openSheet(confirmSheet, confirmCancelBtn);
+  }
+  confirmCancelBtn.addEventListener('click', () => { confirmAction = null; closeSheet(); });
+  confirmOkBtn.addEventListener('click', () => {
+    const action = confirmAction;
+    confirmAction = null;
+    closeSheet();
+    if(action) action();
+  });
+  // ---- Collapse / expand all groups (All Tasks and Templates pages) --------
+  const UP_DOUBLE_CHEVRON = '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M7 11l5-5 5 5M7 18l5-5 5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  const DOWN_DOUBLE_CHEVRON = '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M7 6l5 5 5-5M7 13l5 5 5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  function currentGroupSections(){
+    const page = currentPage === 'templates' ? pageTemplates : (currentPage === 'allTasks' ? pageAllTasks : null);
+    return page ? Array.from(page.querySelectorAll('.task-section')) : [];
+  }
+  let lastCollapseFabState = null;
+  function updateCollapseFab(){
+    const sections = currentGroupSections();
+    // "Collapse" while any group is open; "Expand" once they are all closed.
+    const anyOpen = sections.some(sec => !sec.classList.contains('collapsed'));
+    const state = anyOpen ? 'collapse' : 'expand';
+    if(state === lastCollapseFabState && collapseAllBtn.firstChild) return;
+    lastCollapseFabState = state;
+    collapseAllBtn.innerHTML = anyOpen ? UP_DOUBLE_CHEVRON : DOWN_DOUBLE_CHEVRON;
+    const label = anyOpen ? 'Collapse all groups' : 'Expand all groups';
+    collapseAllBtn.setAttribute('aria-label', label);
+    collapseAllBtn.title = label;
+    collapseAllBtn.disabled = sections.length === 0;
+    collapseAllBtn.style.opacity = sections.length === 0 ? '0.5' : '';
+  }
+  function setAllGroupsCollapsed(collapsed){
+    currentGroupSections().forEach((sec) => {
+      sec.classList.toggle('collapsed', collapsed);
+      const header = sec.querySelector('.section-header');
+      if(header) header.setAttribute('aria-expanded', String(!collapsed));
+      // Keep the remembered state so groups stay as set when the page re-renders.
+      const customId = sec.dataset.customId;
+      const groupId = sec.dataset.groupId;
+      if(customId){ collapsed ? collapsedCustomSections.add(customId) : collapsedCustomSections.delete(customId); }
+      if(groupId){ collapsed ? collapsedTemplateGroups.add(groupId) : collapsedTemplateGroups.delete(groupId); }
+    });
+    updateCollapseFab();
+  }
+  collapseAllBtn.addEventListener('click', () => {
+    const anyOpen = currentGroupSections().some(sec => !sec.classList.contains('collapsed'));
+    setAllGroupsCollapsed(anyOpen);
+  });
+  // Keep the arrow right when a single group is toggled or the lists re-render.
+  if(typeof MutationObserver !== 'undefined'){
+    const collapseObserver = new MutationObserver(() => { if(!collapseFabLayer.hidden){ lastCollapseFabState = null; updateCollapseFab(); } });
+    [pageAllTasks, pageTemplates].forEach((pg) => collapseObserver.observe(pg, { subtree: true, childList: true, attributes: true, attributeFilter: ['class'] }));
+  }
+
+  function plural(n, word){ return n + ' ' + word + (n === 1 ? '' : 's'); }
+
   fabBtn.addEventListener('click', () => { sheetTargetSection = null; sheetTargetTemplateGroupId = null; openSheet(addSheet, addInput); });
   fabMultiBtn.addEventListener('click', () => { sheetTargetSection = null; sheetTargetTemplateGroupId = null; multiHint.textContent = DEFAULT_MULTI_HINT; openSheet(multiSheet, multiTitle); });
   sheetBackdrop.addEventListener('click', () => closeSheet());
@@ -2497,7 +2616,9 @@
     if(e.key === 'Escape' && openSheetEl) closeSheet();
   });
 
-  document.querySelectorAll('.section-add-btn').forEach((btn) => {
+  // Only the real group buttons (they carry a data-section). The sheet's own
+  // "+ Add another step" button shares the class but must not reopen a sheet.
+  document.querySelectorAll('.section-add-btn[data-section]').forEach((btn) => {
     btn.addEventListener('click', () => {
       sheetTargetSection = btn.dataset.section;
       sheetTargetTemplateGroupId = null;
@@ -2513,13 +2634,23 @@
   function submitNewTemplateGroup(){
     const name = groupNameInput.value.trim();
     if(!name) return;
-    addTemplateGroup(name);
+    if(groupSheetMode === 'tasks') addCustomSection(name);
+    else addTemplateGroup(name);
     groupNameInput.value = '';
     renderAll();
     scheduleSave();
     closeSheet();
   }
-  addGroupBtn.addEventListener('click', () => openSheet(groupSheet, groupNameInput));
+  addGroupBtn.addEventListener('click', () => {
+    groupSheetMode = 'template';
+    groupSheetTitle.textContent = 'New group';
+    openSheet(groupSheet, groupNameInput);
+  });
+  addCustomSectionBtn.addEventListener('click', () => {
+    groupSheetMode = 'tasks';
+    groupSheetTitle.textContent = 'New group';
+    openSheet(groupSheet, groupNameInput);
+  });
   groupSaveBtn.addEventListener('click', submitNewTemplateGroup);
   groupNameInput.addEventListener('keydown', (e) => {
     if(e.key === 'Enter'){ e.preventDefault(); submitNewTemplateGroup(); }
@@ -2621,8 +2752,11 @@
       btn.classList.toggle('active', btn.dataset.page === name);
     });
     fabLayer.hidden = (name !== 'today');
+    collapseFabLayer.hidden = !(name === 'allTasks' || name === 'templates');
+    if(!collapseFabLayer.hidden) updateCollapseFab();
     appScroller.scrollTop = 0;
     if(FIXED_BARS){ const st = activeStack(); if(st){ measureStack(st); } }
+    if(name === 'today'){ applyCompactRoom(); window.requestAnimationFrame(updateCompactState); }
   }
   tabButtons.forEach((btn) => {
     btn.addEventListener('click', () => switchPage(btn.dataset.page));
@@ -2759,7 +2893,23 @@
   const COMPACT_EXIT = 8;
   const COMPACT_TOGGLE_COOLDOWN_MS = 320;
   let pickerAnimTimer = null;
+  // While the bar is compact, guarantee the Today list can scroll at least
+  // (header height + margin) past the top. Otherwise a short list (e.g. after
+  // "Hide completed") can't scroll that far, the browser clamps scrollTop back
+  // towards 0, and the bar expands again by itself.
+  var COMPACT_ROOM_EXTRA = 40; // var: switchPage() calls applyCompactRoom() before this line runs
+  function applyCompactRoom(){
+    const on = picker.classList.contains('compact');
+    const h = appHeader.offsetHeight;
+    pageToday.style.minHeight = (on && h > 0)
+      ? 'calc(100% + ' + (h + COMPACT_ROOM_EXTRA) + 'px)'
+      : '';
+  }
+  window.addEventListener('resize', applyCompactRoom);
   function setPickerCompact(makeCompact){
+    // Add the room before the bar shrinks, remove it after it grows.
+    if(makeCompact) pageToday.style.minHeight = 'calc(100% + ' + (appHeader.offsetHeight + COMPACT_ROOM_EXTRA) + 'px)';
+    else pageToday.style.minHeight = '';
     const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if(reduce){
       picker.classList.toggle('compact', makeCompact);
@@ -2787,6 +2937,9 @@
   let compactTicking = false;
   let lastCompactToggleAt = 0;
   function updateCompactState(){
+    // Today's header is display:none while another tab is showing, which would
+    // read as "scrolled far past the header" and compact the bar wrongly.
+    if(pageToday.hidden){ compactTicking = false; return; }
     // The header now sits in the fixed stack, so work out where its bottom
     // edge would be if it scrolled with the list.
     const headerBottom = FIXED_BARS
@@ -2977,6 +3130,19 @@
     templateGroups = templateGroups.map(normalizeTemplateGroup);
 
     try{
+      const rawCustom = localStorage.getItem(CUSTOM_SECTIONS_STORAGE_KEY);
+      const parsed = rawCustom ? JSON.parse(rawCustom) : [];
+      customSections = Array.isArray(parsed) ? parsed
+        .filter(g => g && g.id && !BUILTIN_SECTIONS.includes(g.id))
+        .map(g => ({ id: String(g.id), name: (typeof g.name === 'string' && g.name.trim()) ? g.name : 'Untitled group' })) : [];
+    }catch(e){
+      customSections = [];
+    }
+    // A task pointing at a group that no longer exists falls back to Priority
+    // so it never disappears from All Tasks.
+    chores = chores.map(c => (c.section && !isKnownSection(c.section)) ? { ...c, section: 'priority' } : c);
+
+    try{
       const rawSettings = localStorage.getItem(SETTINGS_STORAGE_KEY);
       settings = rawSettings ? { ...DEFAULT_SETTINGS, ...JSON.parse(rawSettings) } : { ...DEFAULT_SETTINGS };
     }catch(e){
@@ -2992,6 +3158,7 @@
     try{
       localStorage.setItem(STORAGE_KEY, JSON.stringify(chores));
       localStorage.setItem(TEMPLATES_STORAGE_KEY, JSON.stringify(templateGroups));
+      localStorage.setItem(CUSTOM_SECTIONS_STORAGE_KEY, JSON.stringify(customSections));
       statusLine.textContent = '';
     }catch(e){
       statusLine.textContent = 'Could not save, changes may not persist.';
@@ -3385,8 +3552,8 @@
     // Legend, centred along the bottom under the time-of-day labels
     const ly = 1040;
     const legendItems = [
-      { color: cAdd, label: "Today's task count" },
-      { color: cDone, label: 'Completed today' },
+      { color: cAdd, label: 'Task count' },
+      { color: cDone, label: 'Completed' },
       { color: cStar, label: 'Caught up', star: true }
     ];
     ctx.textAlign = 'left';
@@ -3517,8 +3684,111 @@
     previousRemaining = remaining;
   }
 
+  function isKnownSection(key){
+    return BUILTIN_SECTIONS.includes(key) || customSections.some(g => g.id === key);
+  }
+
+  function renderCustomSection(group){
+    const section = document.createElement('section');
+    section.className = 'task-section custom-section';
+    section.dataset.section = group.id;
+    section.dataset.customId = group.id;
+    const isCollapsed = collapsedCustomSections.has(group.id);
+    if(isCollapsed) section.classList.add('collapsed');
+
+    const headerRow = document.createElement('div');
+    headerRow.className = 'section-header-row';
+
+    const header = document.createElement('button');
+    header.type = 'button';
+    header.className = 'section-header';
+    header.dataset.section = group.id;
+    header.setAttribute('aria-expanded', String(!isCollapsed));
+    const title = document.createElement('h2');
+    title.className = 'section-title';
+    title.textContent = group.name;
+    header.appendChild(title);
+    header.insertAdjacentHTML('beforeend', '<svg class="section-chevron" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>');
+    header.addEventListener('click', () => {
+      const collapsed = section.classList.toggle('collapsed');
+      header.setAttribute('aria-expanded', String(!collapsed));
+      if(collapsed){ collapsedCustomSections.add(group.id); } else { collapsedCustomSections.delete(group.id); }
+    });
+
+    const delBtn = document.createElement('button');
+    delBtn.type = 'button';
+    delBtn.className = 'del template-group-del';
+    delBtn.setAttribute('aria-label', 'Delete group ' + group.name);
+    delBtn.textContent = '×';
+    delBtn.addEventListener('click', () => {
+      const n = chores.filter(c => c.section === group.id).length;
+      confirmDelete(
+        'Delete this group?',
+        '\u201c' + group.name + '\u201d will be deleted.' + (n ? ' Its ' + plural(n, 'task') + ' will move to Priority.' : ''),
+        () => removeCustomSection(group.id)
+      );
+    });
+
+    headerRow.appendChild(header);
+    headerRow.appendChild(delBtn);
+    section.appendChild(headerRow);
+
+    const body = document.createElement('div');
+    body.className = 'section-body';
+    const listEl = document.createElement('div');
+    listEl.className = 'list';
+    body.appendChild(listEl);
+
+    const addRow = document.createElement('div');
+    addRow.className = 'section-add-row';
+    [['simple', '+ Add task'], ['multi', '+ Add multi-step task']].forEach(([kind, label]) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'section-add-btn';
+      btn.dataset.section = group.id;
+      btn.dataset.kind = kind;
+      btn.textContent = label;
+      btn.addEventListener('click', () => {
+        sheetTargetSection = group.id;
+        sheetTargetTemplateGroupId = null;
+        if(kind === 'multi'){
+          multiHint.textContent = DEFAULT_MULTI_HINT;
+          openSheet(multiSheet, multiTitle);
+        } else {
+          openSheet(addSheet, addInput);
+        }
+      });
+      addRow.appendChild(btn);
+    });
+    body.appendChild(addRow);
+    section.appendChild(body);
+    return { section, listEl };
+  }
+
+  function addCustomSection(name){
+    customSections.push({ id: 'g' + uid(), name });
+  }
+  function removeCustomSection(groupId){
+    // Tasks aren't deleted with the group: they move to Priority.
+    chores = chores.map(c => c.section === groupId ? { ...c, section: 'priority' } : c);
+    customSections = customSections.filter(g => g.id !== groupId);
+    collapsedCustomSections.delete(groupId);
+    renderAll();
+    scheduleSave();
+  }
+
   function renderAllTasks(){
-    ['priority', 'week', 'month'].forEach((key) => {
+    customSectionsContainer.innerHTML = '';
+    customSections.forEach((group) => {
+      const { section, listEl } = renderCustomSection(group);
+      SECTION_LISTS[group.id] = listEl;
+      customSectionsContainer.appendChild(section);
+    });
+    Object.keys(SECTION_LISTS).forEach((k) => {
+      if(!isKnownSection(k)) delete SECTION_LISTS[k];
+    });
+
+    BUILTIN_SECTIONS.concat(customSections.map(g => g.id)).forEach((key) => {
       const sectionChores = chores.filter(c => c.section === key);
       buildListInto(
         SECTION_LISTS[key], sectionChores, hideCompletedAllTasks, 'allTasks',
@@ -3617,7 +3887,11 @@
     del.className = 'del';
     del.setAttribute('aria-label', 'Delete task');
     del.textContent = '×';
-    del.addEventListener('click', () => remove(chore.id));
+    del.addEventListener('click', () => confirmDelete(
+      'Delete this task?',
+      '\u201c' + chore.text + '\u201d and its ' + plural(chore.steps.length, 'step') + ' will be deleted.',
+      () => remove(chore.id)
+    ));
 
     if(pageContext === 'allTasks'){
       head.appendChild(makeDragHandle(chore));
@@ -3751,7 +4025,11 @@
     del.className = 'del';
     del.setAttribute('aria-label', 'Delete template task');
     del.textContent = '×';
-    del.addEventListener('click', () => removeTemplateItem(groupId, item.id));
+    del.addEventListener('click', () => confirmDelete(
+      'Delete this task?',
+      '\u201c' + item.text + '\u201d and its ' + plural(item.steps.length, 'step') + ' will be deleted.',
+      () => removeTemplateItem(groupId, item.id)
+    ));
     head.appendChild(del);
 
     card.appendChild(head);
@@ -3926,7 +4204,11 @@
     delGroupBtn.className = 'del template-group-del';
     delGroupBtn.setAttribute('aria-label', 'Delete group ' + group.name);
     delGroupBtn.textContent = '×';
-    delGroupBtn.addEventListener('click', () => removeTemplateGroup(group.id));
+    delGroupBtn.addEventListener('click', () => confirmDelete(
+      'Delete this group?',
+      '\u201c' + group.name + '\u201d and ' + (group.items.length ? 'its ' + plural(group.items.length, 'task') : 'everything in it') + ' will be deleted.',
+      () => removeTemplateGroup(group.id)
+    ));
 
     headerRow.appendChild(header);
     headerRow.appendChild(delGroupBtn);
@@ -4245,6 +4527,7 @@
       sectionEl.classList.remove('collapsed');
       const header = sectionEl.querySelector('.section-header');
       if(header) header.setAttribute('aria-expanded', 'true');
+      if(sectionEl.dataset.customId) collapsedCustomSections.delete(sectionEl.dataset.customId);
     }
   }
 
