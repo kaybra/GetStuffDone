@@ -1863,8 +1863,19 @@
   .chart-actions .chart-close{ background: rgba(var(--hairline-rgb),0.08); color: var(--ink); }
 
   /* ---- Swipe on group headings (All Tasks + Templates) ---- */
-  .gswipe-add{ background: rgba(var(--mint-rgb),0.30) !important; }
-  .gswipe-remove{ background: rgba(var(--pink-rgb),0.30) !important; }
+  .gswipe-bg{ border-radius: 0; }
+  .gswipe-inner{
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: inherit;
+    justify-content: inherit;
+    gap: inherit;
+    flex: 1 1 auto;
+    min-width: 0;
+    box-sizing: content-box;
+  }
+  .gswipe-active{ overflow: hidden; }
   #confirmSheet .row{ flex-wrap: wrap; }
   #confirmSheet #confirmAlt{ flex-basis: 100%; }
 
@@ -1883,6 +1894,10 @@
   }
   html.compact-top header > *{ display: none; }
   html.compact-top header + .picker{ margin-top: 0; }
+  /* The bar sits flush against the top: no gap from the header strip... */
+  html.compact-top header:has(+ .picker){ margin-bottom: 0; }
+  /* ...and (Android shell, where the bars scroll with the page) no top padding above it. */
+  html:not(.fixed-bars).compact-top .app > .page{ padding-top: var(--sat); }
   html.fixed-bars.compact-top .topstack > header{ margin: 0; }
   html.fixed-bars.compact-top .topstack > header:last-child{ margin-bottom: 8px; }
 </style>
@@ -4628,6 +4643,27 @@
     let dragging = false, decided = false, horizontal = false;
     let startX = 0, startY = 0, dx = 0, pid = null, suppressUntil = 0;
     el.style.touchAction = 'pan-y';
+
+    // Same look as swiping a task: the heading slides over a coloured bar that
+    // fades in with a label. The heading's contents move inside an opaque
+    // layer (so the heading itself keeps its sticky position and bottom line).
+    const bg = document.createElement('div');
+    bg.className = 'swipe-bg gswipe-bg';
+    const inner = document.createElement('div');
+    inner.className = 'gswipe-inner';
+    while(el.firstChild) inner.appendChild(el.firstChild);
+    el.appendChild(bg);
+    el.appendChild(inner);
+    function fitInner(){
+      // Stretch the moving layer over the heading's padding, so it covers the
+      // whole bar while its contents stay exactly where they were.
+      const cs = getComputedStyle(el);
+      inner.style.padding = cs.padding;
+      inner.style.margin = '-' + cs.paddingTop + ' -' + cs.paddingRight + ' -' + cs.paddingBottom + ' -' + cs.paddingLeft;
+      // Fully opaque, so the coloured bar and its label never show through.
+      inner.style.backgroundColor = 'rgb(var(--bg-rgb))';
+    }
+
     // A swipe must not also count as a tap that collapses/expands the group.
     (guardEl || el).addEventListener('click', (e) => {
       if(Date.now() < suppressUntil){ e.stopPropagation(); e.preventDefault(); }
@@ -4636,12 +4672,18 @@
       const sign = raw < 0 ? -1 : 1, a = Math.abs(raw);
       return sign * (RUBBER_MAX * a) / (RUBBER_MAX + a);
     }
+    function reset(){
+      inner.style.transition = 'transform 0.18s ease-out';
+      inner.style.transform = 'translateX(0px)';
+      bg.style.opacity = '0';
+      window.setTimeout(() => el.classList.remove('gswipe-active'), 190);
+    }
     el.addEventListener('pointerdown', (e) => {
       if(e.pointerType === 'mouse' && e.button !== 0) return;
       if(e.target && e.target.closest && e.target.closest('.del')) return;
       dragging = true; decided = false; horizontal = false; dx = 0;
       startX = e.clientX; startY = e.clientY; pid = e.pointerId;
-      el.style.transition = 'none';
+      inner.style.transition = 'none';
     });
     el.addEventListener('pointermove', (e) => {
       if(!dragging) return;
@@ -4651,14 +4693,23 @@
         decided = true;
         horizontal = Math.abs(rx) > Math.abs(ry);
         if(!horizontal){ dragging = false; return; }
+        fitInner();
+        el.classList.add('gswipe-active');
         try{ el.setPointerCapture(pid); }catch(err){ /* drag still works without capture */ }
       }
       if(!horizontal) return;
       dx = rx;
-      const ok = (dx > 0 && handlers.right) || (dx < 0 && handlers.left);
-      el.style.transform = 'translateX(' + (ok ? dx : rubber(dx)) + 'px)';
-      el.classList.toggle('gswipe-add', !!(handlers.right && dx > THRESHOLD));
-      el.classList.toggle('gswipe-remove', !!(handlers.left && dx < -THRESHOLD));
+      const canDo = (dx > 0 && handlers.right) || (dx < 0 && handlers.left);
+      inner.style.transform = 'translateX(' + (canDo ? dx : rubber(dx)) + 'px)';
+      if(canDo){
+        const adding = dx > 0;
+        bg.textContent = adding ? 'Add all to Today' : 'Remove all from Today';
+        bg.classList.toggle('swipe-bg-add', adding);
+        bg.classList.toggle('swipe-bg-remove', !adding);
+        bg.style.opacity = String(Math.min(1, Math.abs(dx) / THRESHOLD));
+      }else{
+        bg.style.opacity = '0';
+      }
       if(e.cancelable) e.preventDefault();
     });
     function end(){
@@ -4669,10 +4720,8 @@
         if(dx > THRESHOLD && handlers.right) fire = handlers.right;
         else if(dx < -THRESHOLD && handlers.left) fire = handlers.left;
         suppressUntil = Date.now() + 350;
+        reset();
       }
-      el.style.transition = 'transform 0.18s ease-out';
-      el.style.transform = 'translateX(0px)';
-      el.classList.remove('gswipe-add', 'gswipe-remove');
       dx = 0;
       if(fire) fire();
     }
