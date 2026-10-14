@@ -770,6 +770,36 @@
     min-height: 1.3em;
     transition: font-size 0.15s ease-out;
   }
+  .pick-result .pick-line{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap: 12px;
+    max-width: 100%;
+  }
+  .pick-result .pick-check{
+    width: 30px;
+    height: 30px;
+    border-color: var(--yellow);
+    flex: 0 0 auto;
+  }
+  .pick-result .pick-check svg{ width: 15px; height: 15px; }
+  .pick-result .pick-check[hidden]{ display: none; }
+  .pick-result.done .pick-check{
+    background: var(--mint);
+    border-color: var(--mint);
+    box-shadow: 0 0 12px rgba(var(--mint-rgb),0.6);
+  }
+  .pick-result.done .pick-check svg{ opacity: 1; }
+  .pick-result.done .name{
+    text-decoration: line-through;
+    text-decoration-thickness: 2px;
+    opacity: 0.6;
+  }
+  :root:is([data-theme="neutral"],[data-theme="dark"]) .pick-result.done .pick-check{
+    box-shadow: var(--glow-grey-sm);
+  }
+  .picker.compact .pick-result .pick-check{ width: 26px; height: 26px; }
   .picker.compact .pick-result{
     margin-top: 10px;
     padding: 10px 10px 2px;
@@ -1831,6 +1861,30 @@
   }
   .chart-actions .chart-share{ background: linear-gradient(120deg, var(--cyan), var(--mint)); color: var(--btn-ink-b); }
   .chart-actions .chart-close{ background: rgba(var(--hairline-rgb),0.08); color: var(--ink); }
+
+  /* ---- Swipe on group headings (All Tasks + Templates) ---- */
+  .gswipe-add{ background: rgba(var(--mint-rgb),0.30) !important; }
+  .gswipe-remove{ background: rgba(var(--pink-rgb),0.30) !important; }
+  #confirmSheet .row{ flex-wrap: wrap; }
+  #confirmSheet #confirmAlt{ flex-basis: 100%; }
+
+  /* ---- "Show top info section" turned off ----
+     Headers keep only a safe-area strip (so content clears the status bar);
+     the Today bar stays in its compact form. Templates/Settings lose the bar. */
+  html.compact-top header{
+    background: var(--bg);
+    box-shadow: none;
+    border-bottom: none;
+    padding-top: var(--sat);
+    padding-bottom: 0;
+    min-height: var(--sat);
+    margin-top: 0;
+    margin-bottom: 8px;
+  }
+  html.compact-top header > *{ display: none; }
+  html.compact-top header + .picker{ margin-top: 0; }
+  html.fixed-bars.compact-top .topstack > header{ margin: 0; }
+  html.fixed-bars.compact-top .topstack > header:last-child{ margin-bottom: 8px; }
 </style>
 </head>
 <body>
@@ -1879,7 +1933,10 @@
     <div class="pick-result" id="pickResult" hidden>
       <span class="label">Do this next</span>
       <span class="parent" id="pickParent" hidden></span>
-      <span class="name" id="pickName"></span>
+      <span class="pick-line">
+        <button type="button" class="check pick-check" id="pickCheck" aria-label="Mark as done" hidden></button>
+        <span class="name" id="pickName"></span>
+      </span>
     </div>
     <div class="pick-empty" id="pickEmpty" hidden>Nothing left to pick &mdash; add a task or clear some ticks.</div>
   </div>
@@ -1987,6 +2044,46 @@
         </button>
       </div>
 
+      <div class="settings-row">
+        <div class="settings-row-text">
+          <span class="settings-row-label">Warn before deleting a task</span>
+          <span class="settings-row-desc">Ask for confirmation before a single task is deleted.</span>
+        </div>
+        <button type="button" class="toggle-switch" id="toggleWarnSingle" role="switch" aria-checked="true" aria-label="Warn before deleting a single task">
+          <span class="toggle-switch-knob"></span>
+        </button>
+      </div>
+
+      <div class="settings-row">
+        <div class="settings-row-text">
+          <span class="settings-row-label">Warn before deleting a multi-step task</span>
+          <span class="settings-row-desc">Ask for confirmation before a multi-step task is deleted.</span>
+        </div>
+        <button type="button" class="toggle-switch" id="toggleWarnMulti" role="switch" aria-checked="true" aria-label="Warn before deleting a multi-step task">
+          <span class="toggle-switch-knob"></span>
+        </button>
+      </div>
+
+      <div class="settings-row">
+        <div class="settings-row-text">
+          <span class="settings-row-label">Warn before deleting a group</span>
+          <span class="settings-row-desc">Ask before a group is deleted. Turned off, deleting an All Tasks group sends its tasks to Priority.</span>
+        </div>
+        <button type="button" class="toggle-switch" id="toggleWarnGroup" role="switch" aria-checked="true" aria-label="Warn before deleting a group">
+          <span class="toggle-switch-knob"></span>
+        </button>
+      </div>
+
+      <div class="settings-row">
+        <div class="settings-row-text">
+          <span class="settings-row-label">Show top info section</span>
+          <span class="settings-row-desc">Turned off, each page shows only the compact top bar, and Templates and Settings have no top bar.</span>
+        </div>
+        <button type="button" class="toggle-switch" id="toggleTopInfo" role="switch" aria-checked="true" aria-label="Show top info section on each page">
+          <span class="toggle-switch-knob"></span>
+        </button>
+      </div>
+
       <div class="settings-row settings-row-stacked">
         <div class="settings-row-text">
           <span class="settings-row-label">Theme</span>
@@ -2018,7 +2115,7 @@
       </div>
     </div>
 
-    <p class="version-tag">v1.2.8</p>
+    <p class="version-tag">v1.2.9</p>
     <p class="credit-line">Inspired by a video by Simone Giertz,<br>please check out <a class="credit-link" href="https://www.youtube.com/@simonegiertz" target="_blank" rel="noopener noreferrer">her channel</a></p>
     <p class="support-line">This app is free and ad-free, but you can<br><a class="credit-link" href="https://ko-fi.com/getstuffdone" target="_blank" rel="noopener noreferrer">buy me a coffee here</a></p>
   </div>
@@ -2113,6 +2210,7 @@
   <div class="row">
     <button type="button" class="cancel" id="confirmCancel">Cancel</button>
     <button type="button" class="danger" id="confirmOk">Delete</button>
+    <button type="button" class="danger" id="confirmAlt" hidden>Delete</button>
   </div>
 </div>
 
@@ -2139,7 +2237,7 @@
   const CUSTOM_SECTIONS_STORAGE_KEY = 'allTasks:customGroups';
   const BUILTIN_SECTIONS = ['priority', 'week', 'month'];
   const SETTINGS_STORAGE_KEY = 'settings:prefs';
-  const DEFAULT_SETTINGS = { hideCelebration: false, theme: 'vibrant', appIcon: 'vibrant' };
+  const DEFAULT_SETTINGS = { hideCelebration: false, theme: 'vibrant', appIcon: 'vibrant', warnSingleDelete: true, warnMultiDelete: true, warnGroupDelete: true, showTopInfo: true };
   const list = document.getElementById('list');
   const tally = document.getElementById('tally');
   const compactTally = document.getElementById('compactTally');
@@ -2157,6 +2255,8 @@
   const pickParent = document.getElementById('pickParent');
   const pickName = document.getElementById('pickName');
   const pickEmpty = document.getElementById('pickEmpty');
+  const pickCheck = document.getElementById('pickCheck');
+  let pickedRef = null;   // the task (or step) the randomiser landed on: { choreId, stepId }
   const statusLine = document.getElementById('statusLine');
   const splash = document.getElementById('splash');
   const splashGif = document.getElementById('splashGif');
@@ -2198,6 +2298,16 @@
   const appScroller = document.querySelector('.app');
 
   const toggleCelebration = document.getElementById('toggleCelebration');
+  const toggleWarnSingle = document.getElementById('toggleWarnSingle');
+  const toggleWarnMulti = document.getElementById('toggleWarnMulti');
+  const toggleWarnGroup = document.getElementById('toggleWarnGroup');
+  const toggleTopInfo = document.getElementById('toggleTopInfo');
+  const SETTING_TOGGLES = [
+    [toggleWarnSingle, 'warnSingleDelete'],
+    [toggleWarnMulti, 'warnMultiDelete'],
+    [toggleWarnGroup, 'warnGroupDelete'],
+    [toggleTopInfo, 'showTopInfo']
+  ];
   const themePicker = document.getElementById('themePicker');
   const themeOptionBtns = Array.from(themePicker.querySelectorAll('.theme-option'));
   const appIconPicker = document.getElementById('appIconPicker');
@@ -2249,6 +2359,11 @@
     const celebrationOn = !settings.hideCelebration;
     toggleCelebration.classList.toggle('on', celebrationOn);
     toggleCelebration.setAttribute('aria-checked', String(celebrationOn));
+    SETTING_TOGGLES.forEach(([el, key]) => {
+      const on = !!settings[key];
+      el.classList.toggle('on', on);
+      el.setAttribute('aria-checked', String(on));
+    });
     themeOptionBtns.forEach((btn) => {
       const isActive = btn.dataset.themeChoice === settings.theme;
       btn.classList.toggle('active', isActive);
@@ -2274,6 +2389,35 @@
     updateSettingsUI();
     persistSettings();
   });
+
+  SETTING_TOGGLES.forEach(([el, key]) => {
+    el.addEventListener('click', () => {
+      settings[key] = !settings[key];
+      updateSettingsUI();
+      persistSettings();
+      if(key === 'showTopInfo') applyTopInfo();
+    });
+  });
+
+  // "Show top info section": off = compact top bar only (Today keeps its
+  // compact picker bar; the big headers shrink to a safe-area strip).
+  function applyTopInfo(){
+    document.documentElement.classList.toggle('compact-top', !settings.showTopInfo);
+    if(!settings.showTopInfo){
+      picker.classList.add('compact');
+      picker.style.height = '';
+    }else{
+      picker.classList.remove('compact');
+    }
+    pageToday.style.minHeight = '';
+    window.requestAnimationFrame(() => {
+      try{
+        topStacks.forEach(measureStack);
+        applyCompactRoom();
+        updateCompactState();
+      }catch(e){}
+    });
+  }
 
   themeOptionBtns.forEach((btn) => {
     btn.addEventListener('click', () => {
@@ -2559,14 +2703,31 @@
   const confirmOkBtn = document.getElementById('confirmOk');
   const confirmCancelBtn = document.getElementById('confirmCancel');
   let confirmAction = null;
-  function confirmDelete(title, message, onConfirm, okLabel){
+  const confirmAltBtn = document.getElementById('confirmAlt');
+  let confirmAltAction = null;
+  function confirmDelete(title, message, onConfirm, okLabel, alt){
     confirmTitle.textContent = title;
     confirmMessage.textContent = message;
     confirmOkBtn.textContent = okLabel || 'Delete';
     confirmAction = onConfirm;
+    confirmAltAction = alt ? alt.action : null;
+    confirmAltBtn.hidden = !alt;
+    if(alt) confirmAltBtn.textContent = alt.label;
     openSheet(confirmSheet, confirmCancelBtn);
   }
-  confirmCancelBtn.addEventListener('click', () => { confirmAction = null; closeSheet(); });
+  // Ask first only when that kind of warning is switched on in Settings.
+  function confirmIf(flag, title, message, action, okLabel){
+    if(flag) confirmDelete(title, message, action, okLabel);
+    else action();
+  }
+  confirmAltBtn.addEventListener('click', () => {
+    const action = confirmAltAction;
+    confirmAction = null;
+    confirmAltAction = null;
+    closeSheet();
+    if(action) action();
+  });
+  confirmCancelBtn.addEventListener('click', () => { confirmAction = null; confirmAltAction = null; closeSheet(); });
   confirmOkBtn.addEventListener('click', () => {
     const action = confirmAction;
     confirmAction = null;
@@ -2674,6 +2835,16 @@
       const collapsed = section.classList.toggle('collapsed');
       header.setAttribute('aria-expanded', String(!collapsed));
     });
+  });
+  // Priority / In the next week / In the next month: swipe the heading to put
+  // the whole group on (right) or off (left) Today.
+  BUILTIN_SECTIONS.forEach((key) => {
+    const sec = pageAllTasks.querySelector('.task-section[data-section="' + key + '"]');
+    const hdr = sec && sec.querySelector(':scope > .section-header');
+    if(hdr) attachGroupSwipe(hdr, {
+      right: () => setSectionOnToday(key, true),
+      left: () => setSectionOnToday(key, false)
+    }, sec);
   });
 
   // Keep the "Priority / next week / next month" group headings stuck just
@@ -2829,7 +3000,12 @@
   }
 
   function tutorialFindTarget(step){
-    return document.querySelector(step.selector) || (step.fallbackSelector ? document.querySelector(step.fallbackSelector) : null);
+    const visible = (el) => !!el && el.getClientRects().length > 0 && el.getBoundingClientRect().width > 0;
+    const a = document.querySelector(step.selector);
+    if(visible(a)) return a;
+    const b = step.fallbackSelector ? document.querySelector(step.fallbackSelector) : null;
+    if(visible(b)) return b;
+    return document.querySelector('#list');
   }
 
   function tutorialTick(){
@@ -2948,6 +3124,11 @@
   let compactTicking = false;
   let lastCompactToggleAt = 0;
   function updateCompactState(){
+    if(!settings.showTopInfo){
+      if(!picker.classList.contains('compact')) picker.classList.add('compact');
+      compactTicking = false;
+      return;
+    }
     // Today's header is display:none while another tab is showing, which would
     // read as "scrolled far past the header" and compact the bar wrongly.
     if(pageToday.hidden){ compactTicking = false; return; }
@@ -3161,6 +3342,11 @@
     }
     applyTheme(settings.theme);
     updateSettingsUI();
+    applyTopInfo();
+
+    // Every task now lives in All Tasks (Today is just a view of it), so tasks
+    // that were created straight on Today and never moved get a group.
+    chores = chores.map(c => c.section ? c : { ...c, section: 'priority' });
 
     renderAll();
   }
@@ -3679,10 +3865,10 @@
     compactTallyInner.textContent = tallyText;
     syncActivity();
 
-    pickResult.hidden = true;
-    pickEmpty.hidden = remaining > 0;
+    syncPickResult();
+    pickEmpty.hidden = remaining > 0 || !pickResult.hidden;
     pickBtn.disabled = remaining === 0;
-    clearBtn.disabled = !todayChores.some(c => isChoreComplete(c)) && !todayChores.some(c => c.steps && c.steps.some(s => s.done));
+    clearBtn.disabled = !todayChores.some(c => isChoreComplete(c));
     const filterText = hideCompletedToday ? 'Show all' : 'Hide completed';
     filterBtnLabel.textContent = filterText;
     filterBtn.setAttribute('aria-label', filterText);
@@ -3731,18 +3917,15 @@
     delBtn.className = 'del template-group-del';
     delBtn.setAttribute('aria-label', 'Delete group ' + group.name);
     delBtn.textContent = '×';
-    delBtn.addEventListener('click', () => {
-      const n = chores.filter(c => c.section === group.id).length;
-      confirmDelete(
-        'Delete this group?',
-        '\u201c' + group.name + '\u201d will be deleted.' + (n ? ' Its ' + plural(n, 'task') + ' will move to Priority.' : ''),
-        () => removeCustomSection(group.id)
-      );
-    });
+    delBtn.addEventListener('click', () => requestDeleteCustomSection(group));
 
     headerRow.appendChild(header);
     headerRow.appendChild(delBtn);
     section.appendChild(headerRow);
+    attachGroupSwipe(headerRow, {
+      right: () => setSectionOnToday(group.id, true),
+      left: () => setSectionOnToday(group.id, false)
+    }, section);
 
     const body = document.createElement('div');
     body.className = 'section-body';
@@ -3779,9 +3962,31 @@
   function addCustomSection(name){
     customSections.push({ id: 'g' + uid(), name });
   }
-  function removeCustomSection(groupId){
-    // Tasks aren't deleted with the group: they move to Priority.
-    chores = chores.map(c => c.section === groupId ? { ...c, section: 'priority' } : c);
+  // Only user-made groups can be deleted (Priority / next week / next month
+  // have no delete button). Asks whether the tasks go to Priority or are
+  // deleted too; with the group warning off, they safely go to Priority.
+  function requestDeleteCustomSection(group){
+    const n = chores.filter(c => c.section === group.id).length;
+    const q = '\u201c' + group.name + '\u201d';
+    if(!settings.warnGroupDelete){ removeCustomSection(group.id, false); return; }
+    if(n === 0){
+      confirmDelete('Delete this group?', q + ' will be deleted.', () => removeCustomSection(group.id, false));
+      return;
+    }
+    confirmDelete(
+      'Delete this group?',
+      q + ' has ' + plural(n, 'task') + '. Send them to Priority, or delete them as well?',
+      () => removeCustomSection(group.id, false),
+      'Send tasks to Priority',
+      { label: 'Delete group and tasks', action: () => removeCustomSection(group.id, true) }
+    );
+  }
+  function removeCustomSection(groupId, deleteTasks){
+    // Either the tasks move to Priority, or they're deleted with the group
+    // (which also takes them off Today).
+    chores = deleteTasks
+      ? chores.filter(c => c.section !== groupId)
+      : chores.map(c => c.section === groupId ? { ...c, section: 'priority' } : c);
     customSections = customSections.filter(g => g.id !== groupId);
     collapsedCustomSections.delete(groupId);
     renderAll();
@@ -3863,7 +4068,7 @@
     del.className = 'del';
     del.setAttribute('aria-label', 'Delete task');
     del.textContent = '×';
-    del.addEventListener('click', () => remove(chore.id));
+    del.addEventListener('click', () => requestDeleteChore(chore, pageContext));
 
     if(pageContext === 'allTasks'){
       row.appendChild(makeDragHandle(chore));
@@ -3898,11 +4103,7 @@
     del.className = 'del';
     del.setAttribute('aria-label', 'Delete task');
     del.textContent = '×';
-    del.addEventListener('click', () => confirmDelete(
-      'Delete this task?',
-      '\u201c' + chore.text + '\u201d and its ' + plural(chore.steps.length, 'step') + ' will be deleted.',
-      () => remove(chore.id)
-    ));
+    del.addEventListener('click', () => requestDeleteChore(chore, pageContext));
 
     if(pageContext === 'allTasks'){
       head.appendChild(makeDragHandle(chore));
@@ -4002,7 +4203,12 @@
     del.className = 'del';
     del.setAttribute('aria-label', 'Delete template task');
     del.textContent = '×';
-    del.addEventListener('click', () => removeTemplateItem(groupId, item.id));
+    del.addEventListener('click', () => confirmIf(
+      settings.warnSingleDelete,
+      'Delete this task?',
+      '\u201c' + item.text + '\u201d will be deleted from Templates. Copies already on Today or All Tasks are not affected.',
+      () => removeTemplateItem(groupId, item.id)
+    ));
     row.appendChild(del);
 
     return row;
@@ -4036,9 +4242,10 @@
     del.className = 'del';
     del.setAttribute('aria-label', 'Delete template task');
     del.textContent = '×';
-    del.addEventListener('click', () => confirmDelete(
+    del.addEventListener('click', () => confirmIf(
+      settings.warnMultiDelete,
       'Delete this task?',
-      '\u201c' + item.text + '\u201d and its ' + plural(item.steps.length, 'step') + ' will be deleted.',
+      '\u201c' + item.text + '\u201d and its ' + plural(item.steps.length, 'step') + ' will be deleted from Templates. Copies already on Today or All Tasks are not affected.',
       () => removeTemplateItem(groupId, item.id)
     ));
     head.appendChild(del);
@@ -4215,7 +4422,8 @@
     delGroupBtn.className = 'del template-group-del';
     delGroupBtn.setAttribute('aria-label', 'Delete group ' + group.name);
     delGroupBtn.textContent = '×';
-    delGroupBtn.addEventListener('click', () => confirmDelete(
+    delGroupBtn.addEventListener('click', () => confirmIf(
+      settings.warnGroupDelete,
       'Delete this group?',
       '\u201c' + group.name + '\u201d and ' + (group.items.length ? 'its ' + plural(group.items.length, 'task') : 'everything in it') + ' will be deleted.',
       () => removeTemplateGroup(group.id)
@@ -4224,6 +4432,8 @@
     headerRow.appendChild(header);
     headerRow.appendChild(delGroupBtn);
     section.appendChild(headerRow);
+    // Templates can only add (swipe right): remove from Today / All Tasks instead.
+    attachGroupSwipe(headerRow, { right: () => addTemplateGroupToToday(group.id) }, section);
 
     const body = document.createElement('div');
     body.className = 'section-body';
@@ -4348,18 +4558,126 @@
     scheduleSave();
   }
 
+  // Swiping a template onto Today also puts a copy in All Tasks, in a group
+  // with the template group's name (re-used if it already exists). A template
+  // task remembers its copy (activeChoreId), so swiping it again re-uses that
+  // copy (un-ticked) instead of piling up duplicates, and does nothing while
+  // the copy is still on Today.
+  function sectionForTemplateGroup(group){
+    const nm = group.name.trim().toLowerCase();
+    const builtinNames = { priority: 'priority', week: 'in the next week', month: 'in the next month' };
+    for(const key of BUILTIN_SECTIONS){ if(builtinNames[key] === nm) return key; }
+    const found = customSections.find(g => g.name.trim().toLowerCase() === nm);
+    if(found) return found.id;
+    const id = 'g' + uid();
+    customSections.push({ id, name: group.name });
+    return id;
+  }
+  function sendTemplateItemToToday(item, section){
+    const existing = item.activeChoreId ? chores.find(c => c.id === item.activeChoreId) : null;
+    if(existing){
+      if(existing.onToday) return false;
+      const reset = existing.steps
+        ? { ...existing, onToday: true, steps: existing.steps.map(st => ({ ...st, done: false })) }
+        : { ...existing, onToday: true, done: false };
+      chores = chores.map(c => c.id === existing.id ? reset : c);
+      return true;
+    }
+    const newChore = item.steps
+      ? { id: uid(), text: item.text, steps: item.steps.map(st => ({ id: uid(), text: st.text, done: false })), onToday: true, section }
+      : { id: uid(), text: item.text, done: false, onToday: true, section };
+    chores.push(newChore);
+    item.activeChoreId = newChore.id;
+    return true;
+  }
   function addTemplateItemToToday(groupId, itemId){
     const group = templateGroups.find(g => g.id === groupId);
     if(!group) return;
     const item = group.items.find(it => it.id === itemId);
     if(!item) return;
-    const newChore = item.steps
-      ? { id: uid(), text: item.text, steps: item.steps.map(s => ({ id: uid(), text: s.text, done: false })), onToday: true, section: null }
-      : { id: uid(), text: item.text, done: false, onToday: true, section: null };
-    chores.push(newChore);
-    item.activeChoreId = newChore.id;
+    if(templateItemOnToday(item)) return;
+    sendTemplateItemToToday(item, sectionForTemplateGroup(group));
     renderAll();
     scheduleSave();
+  }
+  function addTemplateGroupToToday(groupId){
+    const group = templateGroups.find(g => g.id === groupId);
+    if(!group) return;
+    const todo = group.items.filter(it => !templateItemOnToday(it));
+    if(todo.length === 0) return;
+    const section = sectionForTemplateGroup(group);
+    todo.forEach(it => sendTemplateItemToToday(it, section));
+    renderAll();
+    scheduleSave();
+  }
+
+  // Swipe a whole group heading: right = put every unfinished task in the
+  // group on Today, left = take every task in the group off Today.
+  function setSectionOnToday(key, value){
+    chores = chores.map(c => {
+      if(c.section !== key) return c;
+      if(value) return isChoreComplete(c) ? c : { ...c, onToday: true };
+      return { ...c, onToday: false };
+    });
+    renderAll();
+    scheduleSave();
+  }
+  function attachGroupSwipe(el, handlers, guardEl){
+    const THRESHOLD = 88;
+    const RUBBER_MAX = 36;
+    let dragging = false, decided = false, horizontal = false;
+    let startX = 0, startY = 0, dx = 0, pid = null, suppressUntil = 0;
+    el.style.touchAction = 'pan-y';
+    // A swipe must not also count as a tap that collapses/expands the group.
+    (guardEl || el).addEventListener('click', (e) => {
+      if(Date.now() < suppressUntil){ e.stopPropagation(); e.preventDefault(); }
+    }, true);
+    function rubber(raw){
+      const sign = raw < 0 ? -1 : 1, a = Math.abs(raw);
+      return sign * (RUBBER_MAX * a) / (RUBBER_MAX + a);
+    }
+    el.addEventListener('pointerdown', (e) => {
+      if(e.pointerType === 'mouse' && e.button !== 0) return;
+      if(e.target && e.target.closest && e.target.closest('.del')) return;
+      dragging = true; decided = false; horizontal = false; dx = 0;
+      startX = e.clientX; startY = e.clientY; pid = e.pointerId;
+      el.style.transition = 'none';
+    });
+    el.addEventListener('pointermove', (e) => {
+      if(!dragging) return;
+      const rx = e.clientX - startX, ry = e.clientY - startY;
+      if(!decided){
+        if(Math.abs(rx) < 8 && Math.abs(ry) < 8) return;
+        decided = true;
+        horizontal = Math.abs(rx) > Math.abs(ry);
+        if(!horizontal){ dragging = false; return; }
+        try{ el.setPointerCapture(pid); }catch(err){ /* drag still works without capture */ }
+      }
+      if(!horizontal) return;
+      dx = rx;
+      const ok = (dx > 0 && handlers.right) || (dx < 0 && handlers.left);
+      el.style.transform = 'translateX(' + (ok ? dx : rubber(dx)) + 'px)';
+      el.classList.toggle('gswipe-add', !!(handlers.right && dx > THRESHOLD));
+      el.classList.toggle('gswipe-remove', !!(handlers.left && dx < -THRESHOLD));
+      if(e.cancelable) e.preventDefault();
+    });
+    function end(){
+      if(!dragging) return;
+      dragging = false;
+      let fire = null;
+      if(horizontal){
+        if(dx > THRESHOLD && handlers.right) fire = handlers.right;
+        else if(dx < -THRESHOLD && handlers.left) fire = handlers.left;
+        suppressUntil = Date.now() + 350;
+      }
+      el.style.transition = 'transform 0.18s ease-out';
+      el.style.transform = 'translateX(0px)';
+      el.classList.remove('gswipe-add', 'gswipe-remove');
+      dx = 0;
+      if(fire) fire();
+    }
+    el.addEventListener('pointerup', end);
+    el.addEventListener('pointercancel', end);
   }
 
   function attachSwipe(rowEl, chore, page){
@@ -4827,6 +5145,16 @@
     scheduleSave();
   }
 
+  // Single and multi-step tasks: warn first (unless switched off in Settings).
+  // A task is one record shown on both pages, so deleting it removes it from
+  // Today and from All Tasks.
+  function requestDeleteChore(chore, pageContext){
+    const isMulti = !!chore.steps;
+    const where = pageContext === 'today' ? ' from Today and All Tasks' : (chore.onToday ? ' from All Tasks and Today' : '');
+    const msg = '\u201c' + chore.text + '\u201d' + (isMulti ? ' and its ' + plural(chore.steps.length, 'step') : '') + ' will be deleted' + where + '.';
+    confirmIf(isMulti ? settings.warnMultiDelete : settings.warnSingleDelete, 'Delete this task?', msg, () => remove(chore.id));
+  }
+
   function remove(id){
     chores = chores.filter(c => c.id !== id);
     renderAll();
@@ -4892,7 +5220,7 @@
         text: value,
         done: false,
         onToday: sheetTargetSection === null,
-        section: sheetTargetSection
+        section: sheetTargetSection || 'priority'
       });
     }
     addInput.value = '';
@@ -4909,7 +5237,14 @@
     scheduleSave();
   }
 
-  clearBtn.addEventListener('click', () => clearCompleted(c => c.onToday));
+  // Today's Clear completed only takes finished tasks off Today; they stay in
+  // All Tasks (ticked). All Tasks' own Clear completed is the real delete.
+  function clearCompletedFromToday(){
+    chores = chores.map(c => (c.onToday && isChoreComplete(c)) ? { ...c, onToday: false } : c);
+    renderAll();
+    scheduleSave();
+  }
+  clearBtn.addEventListener('click', clearCompletedFromToday);
   allTasksClearBtn.addEventListener('click', () => clearCompleted(c => !!c.section));
 
   filterBtn.addEventListener('click', () => {
@@ -5039,7 +5374,7 @@
         text: title,
         steps: stepLines.map(text => ({ id: uid(), text, done: false })),
         onToday: sheetTargetSection === null,
-        section: sheetTargetSection
+        section: sheetTargetSection || 'priority'
       });
     }
     multiTitle.value = '';
@@ -5055,22 +5390,48 @@
       if(chore.steps){
         const nextStep = chore.steps.find(s => !s.done);
         if(nextStep){
-          candidates.push({ label: nextStep.text, parent: chore.text });
+          candidates.push({ label: nextStep.text, parent: chore.text, choreId: chore.id, stepId: nextStep.id });
         }
       } else if(!chore.done){
-        candidates.push({ label: chore.text, parent: null });
+        candidates.push({ label: chore.text, parent: null, choreId: chore.id, stepId: null });
       }
     });
     return candidates;
   }
 
   let spinTimer = null;
+
+  // Keeps the "Do this next" box in step with the real task: the tick circle
+  // shows the task's current state, whether it was changed here or in the list.
+  // If the task is deleted or taken off Today the box goes away.
+  function syncPickResult(){
+    if(!pickedRef){ pickResult.hidden = true; return; }
+    const chore = chores.find(c => c.id === pickedRef.choreId && c.onToday);
+    const step = (chore && pickedRef.stepId && chore.steps) ? chore.steps.find(st => st.id === pickedRef.stepId) : null;
+    if(!chore || (pickedRef.stepId && !step)){ pickedRef = null; pickResult.hidden = true; return; }
+    const done = step ? step.done : !!chore.done;
+    pickName.textContent = step ? step.text : chore.text;
+    pickParent.hidden = !step;
+    pickParent.textContent = step ? chore.text : '';
+    pickCheck.hidden = false;
+    pickCheck.innerHTML = checkSvg();
+    pickCheck.setAttribute('aria-label', done ? 'Mark as not done' : 'Mark as done');
+    pickResult.classList.toggle('done', done);
+    pickResult.hidden = false;
+  }
+  pickCheck.addEventListener('click', () => {
+    if(!pickedRef) return;
+    toggle(pickedRef.choreId, pickedRef.stepId || undefined);
+  });
   pickBtn.addEventListener('click', () => {
     const candidates = getCandidates();
     if(candidates.length === 0) return;
 
     pickBtn.disabled = true;
     pickEmpty.hidden = true;
+    pickedRef = null;
+    pickCheck.hidden = true;
+    pickResult.classList.remove('done');
     pickResult.hidden = false;
 
     let ticks = 0;
@@ -5084,6 +5445,8 @@
       ticks++;
       if(ticks >= maxTicks){
         clearInterval(spinTimer);
+        pickedRef = { choreId: random.choreId, stepId: random.stepId };
+        syncPickResult();
         pickBtn.disabled = getCandidates().length === 0;
       }
     }, 70);
