@@ -343,6 +343,23 @@
     pointer-events: none;
   }
 
+  /* Rainbow strip for the pages that have no picker bar (Templates, Settings).
+     Today and All Tasks get theirs from .picker::before. This one is pinned
+     just under the safe area, independent of the header's contents, so it
+     also stays when "Show top info section" is turned off. */
+  html:has(#pageTemplates:not([hidden])) body::after,
+  html:has(#pageSettings:not([hidden])) body::after{
+    content: "";
+    position: fixed;
+    top: var(--sat);
+    left: 0; right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--pink), var(--cyan), var(--lav), var(--mint));
+    opacity: 0.85;
+    z-index: 2;
+    pointer-events: none;
+  }
+
   .app{
     width:100%;
     max-width: none; /* full width so the top bars can bleed to the screen edge */
@@ -2139,9 +2156,19 @@
       <div class="settings-row">
         <div class="settings-row-text">
           <span class="settings-row-label">Show top info section</span>
-          <span class="settings-row-desc">Turned off, each page shows only the compact top bar, and Templates and Settings have no top bar.</span>
+          <span class="settings-row-desc">Turned off, each page shows only the compact top bar, and Templates and Settings keep just the coloured strip.</span>
         </div>
         <button type="button" class="toggle-switch" id="toggleTopInfo" role="switch" aria-checked="true" aria-label="Show top info section on each page">
+          <span class="toggle-switch-knob"></span>
+        </button>
+      </div>
+
+      <div class="settings-row">
+        <div class="settings-row-text">
+          <span class="settings-row-label">Haptic feedback</span>
+          <span class="settings-row-desc">Gentle vibrations when you tick tasks, swipe, pick a task, delete and more. Only on the phone app.</span>
+        </div>
+        <button type="button" class="toggle-switch" id="toggleHaptics" role="switch" aria-checked="true" aria-label="Haptic feedback">
           <span class="toggle-switch-knob"></span>
         </button>
       </div>
@@ -2299,7 +2326,27 @@
   const CUSTOM_SECTIONS_STORAGE_KEY = 'allTasks:customGroups';
   const BUILTIN_SECTIONS = ['priority', 'week', 'month'];
   const SETTINGS_STORAGE_KEY = 'settings:prefs';
-  const DEFAULT_SETTINGS = { hideCelebration: false, theme: 'vibrant', appIcon: 'vibrant', warnSingleDelete: true, warnMultiDelete: true, warnGroupDelete: true, showTopInfo: true };
+  const DEFAULT_SETTINGS = { hideCelebration: false, theme: 'vibrant', appIcon: 'vibrant', warnSingleDelete: true, warnMultiDelete: true, warnGroupDelete: true, showTopInfo: true, haptics: true };
+
+  // ---- Haptic feedback -----------------------------------------------------
+  // Uses the @capacitor/haptics plugin in the native iOS/Android apps and quietly
+  // does nothing on the web. kind: light | medium | heavy (taps), or
+  // success | warning (notification-style patterns). Switched off in Settings.
+  function haptic(kind){
+    try{
+      if(!settings || !settings.haptics) return;
+      const plugins = window.Capacitor && window.Capacitor.Plugins;
+      const h = plugins && plugins.Haptics;
+      if(!h) return;
+      let p = null;
+      if(kind === 'success' || kind === 'warning'){
+        if(typeof h.notification === 'function') p = h.notification({ type: kind.toUpperCase() });
+      } else if(typeof h.impact === 'function'){
+        p = h.impact({ style: String(kind || 'light').toUpperCase() });
+      }
+      if(p && typeof p.catch === 'function') p.catch(() => {});
+    }catch(e){}
+  }
   const list = document.getElementById('list');
   const tally = document.getElementById('tally');
   const compactTally = document.getElementById('compactTally');
@@ -2364,11 +2411,13 @@
   const toggleWarnMulti = document.getElementById('toggleWarnMulti');
   const toggleWarnGroup = document.getElementById('toggleWarnGroup');
   const toggleTopInfo = document.getElementById('toggleTopInfo');
+  const toggleHaptics = document.getElementById('toggleHaptics');
   const SETTING_TOGGLES = [
     [toggleWarnSingle, 'warnSingleDelete'],
     [toggleWarnMulti, 'warnMultiDelete'],
     [toggleWarnGroup, 'warnGroupDelete'],
-    [toggleTopInfo, 'showTopInfo']
+    [toggleTopInfo, 'showTopInfo'],
+    [toggleHaptics, 'haptics']
   ];
   const themePicker = document.getElementById('themePicker');
   const themeOptionBtns = Array.from(themePicker.querySelectorAll('.theme-option'));
@@ -2447,6 +2496,7 @@
   }
 
   toggleCelebration.addEventListener('click', () => {
+    haptic('light');
     settings.hideCelebration = !settings.hideCelebration;
     updateSettingsUI();
     persistSettings();
@@ -2455,6 +2505,7 @@
   SETTING_TOGGLES.forEach(([el, key]) => {
     el.addEventListener('click', () => {
       settings[key] = !settings[key];
+      haptic('light');
       updateSettingsUI();
       persistSettings();
       if(key === 'showTopInfo') applyTopInfo();
@@ -2843,8 +2894,8 @@
 
   function plural(n, word){ return n + ' ' + word + (n === 1 ? '' : 's'); }
 
-  fabBtn.addEventListener('click', () => { sheetTargetSection = null; sheetTargetTemplateGroupId = null; openSheet(addSheet, addInput); });
-  fabMultiBtn.addEventListener('click', () => { sheetTargetSection = null; sheetTargetTemplateGroupId = null; multiHint.textContent = DEFAULT_MULTI_HINT; openSheet(multiSheet, multiTitle); });
+  fabBtn.addEventListener('click', () => { haptic('light'); sheetTargetSection = null; sheetTargetTemplateGroupId = null; openSheet(addSheet, addInput); });
+  fabMultiBtn.addEventListener('click', () => { haptic('light'); sheetTargetSection = null; sheetTargetTemplateGroupId = null; multiHint.textContent = DEFAULT_MULTI_HINT; openSheet(multiSheet, multiTitle); });
   sheetBackdrop.addEventListener('click', () => closeSheet());
   document.addEventListener('keydown', (e) => {
     if(e.key === 'Escape' && openSheetEl) closeSheet();
@@ -3003,7 +3054,7 @@
     if(name === 'today'){ applyCompactRoom(); window.requestAnimationFrame(updateCompactState); }
   }
   tabButtons.forEach((btn) => {
-    btn.addEventListener('click', () => switchPage(btn.dataset.page));
+    btn.addEventListener('click', () => { if(btn.dataset.page !== currentPage) haptic('light'); switchPage(btn.dataset.page); });
   });
   setupFixedBars();
   switchPage('today');
@@ -3939,6 +3990,7 @@
 
     if(previousRemaining !== null && previousRemaining > 0 && remaining === 0 && todayChores.length > 0 && !settings.hideCelebration){
       splash.hidden = false;
+      haptic('success');
     }
     previousRemaining = remaining;
   }
@@ -4929,6 +4981,7 @@
         resetRow();
         return;
       }
+      haptic('medium');
       if(page === 'today'){
         rowEl.style.transition = 'transform 0.18s ease-out, opacity 0.18s ease-out';
         rowEl.style.transform = 'translateX(' + (committableDirection() * 120) + '%)';
@@ -5284,6 +5337,13 @@
   }
 
   function toggle(choreId, stepId){
+    // Firmer tap when something gets ticked off, lighter when it is un-ticked.
+    try{
+      const c0 = chores.find(c => c.id === choreId);
+      const s0 = c0 && stepId && c0.steps ? c0.steps.find(s => s.id === stepId) : null;
+      const wasDone = stepId ? !!(s0 && s0.done) : !!(c0 && c0.done);
+      haptic(wasDone ? 'light' : 'medium');
+    }catch(e){}
     chores = chores.map(chore => {
       if(chore.id !== choreId) return chore;
       if(stepId){
@@ -5309,6 +5369,7 @@
   }
 
   function remove(id){
+    haptic('warning');
     chores = chores.filter(c => c.id !== id);
     renderAll();
     scheduleSave();
@@ -5383,6 +5444,7 @@
   }
 
   function clearCompleted(matchesPage){
+    haptic('warning');
     chores = chores
       .filter(c => !(matchesPage(c) && isChoreComplete(c)))
       .map(c => (matchesPage(c) && c.steps) ? {...c, steps: c.steps.filter(s => !s.done)} : c);
@@ -5393,6 +5455,7 @@
   // Today's Clear completed only takes finished tasks off Today; they stay in
   // All Tasks (ticked). All Tasks' own Clear completed is the real delete.
   function clearCompletedFromToday(){
+    haptic('light');
     chores = chores.map(c => (c.onToday && isChoreComplete(c)) ? { ...c, onToday: false } : c);
     renderAll();
     scheduleSave();
@@ -5401,10 +5464,12 @@
   allTasksClearBtn.addEventListener('click', () => clearCompleted(c => !!c.section));
 
   filterBtn.addEventListener('click', () => {
+    haptic('light');
     hideCompletedToday = !hideCompletedToday;
     renderAll();
   });
   allTasksFilterBtn.addEventListener('click', () => {
+    haptic('light');
     hideCompletedAllTasks = !hideCompletedAllTasks;
     renderAll();
   });
@@ -5596,9 +5661,11 @@
       pickParent.hidden = !random.parent;
       pickParent.textContent = random.parent || '';
       ticks++;
+      if(ticks < maxTicks) haptic('light');   // rolling "ticker" feel while it spins
       if(ticks >= maxTicks){
         clearInterval(spinTimer);
         pickedRef = { choreId: random.choreId, stepId: random.stepId };
+        haptic('success');
         syncPickResult();
         pickBtn.disabled = getCandidates().length === 0;
       }
