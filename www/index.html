@@ -1535,6 +1535,7 @@
     display:flex;
     align-items:center;
     justify-content:center;
+    padding: 0 22px;
     border-radius: var(--radius);
     opacity: 0;
     pointer-events: none;
@@ -1862,8 +1863,31 @@
   .chart-actions .chart-share{ background: linear-gradient(120deg, var(--cyan), var(--mint)); color: var(--btn-ink-b); }
   .chart-actions .chart-close{ background: rgba(var(--hairline-rgb),0.08); color: var(--ink); }
 
-  /* ---- Swipe on group headings (All Tasks + Templates) ---- */
-  .gswipe-bg{ border-radius: 0; }
+  /* ---- Swipe on group headings (All Tasks + Templates) ----
+     Swiping a heading slides the WHOLE group (heading + tasks) sideways over one
+     coloured bar. The bar is only as wide as the gap the group has left behind,
+     and its label is pinned (sticky) beside the heading, aligned to the swipe side. */
+  .gswipe-groupbg{
+    inset: auto;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 0;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: flex-start;
+    padding: 0;
+    z-index: 0;
+    clip-path: inset(0);
+  }
+  .gswipe-label{
+    position: sticky;
+    flex: none;
+    width: max-content;
+    white-space: nowrap;
+    padding: 0 22px;
+    line-height: 1.3;
+  }
   .gswipe-inner{
     position: relative;
     z-index: 1;
@@ -1875,7 +1899,14 @@
     min-width: 0;
     box-sizing: content-box;
   }
-  .gswipe-active{ overflow: hidden; }
+  .gswipe-active{
+    overflow: hidden;
+    background: transparent !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+  /* clip (not hidden) so the heading can stay sticky while the group slides */
+  .gswipe-group-active{ position: relative; overflow-x: clip; }
   #confirmSheet .row{ flex-wrap: wrap; }
   #confirmSheet #confirmAlt{ flex-basis: 100%; }
 
@@ -4337,6 +4368,7 @@
 
     const THRESHOLD = 88;
     const RUBBER_MAX = 36;
+    const LABEL_RAMP = 24;
     let dragging = false;
     let decided = false;
     let isHorizontal = false;
@@ -4385,7 +4417,8 @@
       dx = rawDx;
       const isRight = dx > 0;
       rowEl.style.transform = 'translateX(' + (isRight ? dx : rubberBand(dx)) + 'px)';
-      bg.style.opacity = isRight ? String(Math.min(1, Math.abs(dx) / THRESHOLD)) : '0';
+      bg.style.justifyContent = 'flex-start';
+      bg.style.opacity = isRight ? String(Math.min(1, Math.abs(dx) / LABEL_RAMP)) : '0';
       if(e.cancelable) e.preventDefault();
     });
 
@@ -4640,20 +4673,28 @@
   function attachGroupSwipe(el, handlers, guardEl){
     const THRESHOLD = 88;
     const RUBBER_MAX = 36;
+    const LABEL_RAMP = 24;
     let dragging = false, decided = false, horizontal = false;
-    let startX = 0, startY = 0, dx = 0, pid = null, suppressUntil = 0;
+    let startX = 0, startY = 0, dx = 0, pid = null, suppressUntil = 0, cleanupTimer = null;
     el.style.touchAction = 'pan-y';
 
-    // Same look as swiping a task: the heading slides over a coloured bar that
-    // fades in with a label. The heading's contents move inside an opaque
-    // layer (so the heading itself keeps its sticky position and bottom line).
+    // The whole group (heading + its tasks) slides over one coloured bar, like
+    // swiping a single task. The heading's contents move inside an opaque layer
+    // (so the heading itself keeps its sticky position and bottom line) and the
+    // group's body is moved with it.
+    const group = guardEl || el.parentElement;
     const bg = document.createElement('div');
-    bg.className = 'swipe-bg gswipe-bg';
+    bg.className = 'swipe-bg gswipe-groupbg';
+    const label = document.createElement('span');
+    label.className = 'gswipe-label';
+    bg.appendChild(label);
     const inner = document.createElement('div');
     inner.className = 'gswipe-inner';
     while(el.firstChild) inner.appendChild(el.firstChild);
-    el.appendChild(bg);
     el.appendChild(inner);
+    function bodyEl(){
+      return group ? group.querySelector(':scope > .section-body') : null;
+    }
     function fitInner(){
       // Stretch the moving layer over the heading's padding, so it covers the
       // whole bar while its contents stay exactly where they were.
@@ -4662,6 +4703,25 @@
       inner.style.margin = '-' + cs.paddingTop + ' -' + cs.paddingRight + ' -' + cs.paddingBottom + ' -' + cs.paddingLeft;
       // Fully opaque, so the coloured bar and its label never show through.
       inner.style.backgroundColor = 'rgb(var(--bg-rgb))';
+    }
+    function placeLabel(){
+      // Put the label level with the heading (top aligned, beside it) and let it
+      // stick there while the group is taller than the screen.
+      const gr = group.getBoundingClientRect();
+      const er = el.getBoundingClientRect();
+      const lh = label.offsetHeight || 20;
+      const lift = Math.max(0, (er.height - lh) / 2);
+      label.style.marginTop = (er.top - gr.top + lift) + 'px';
+      let stuckTop = parseFloat(getComputedStyle(el).top);
+      if(isNaN(stuckTop)) stuckTop = er.top;
+      label.style.top = (stuckTop + lift) + 'px';
+    }
+    function setSlide(px, transition){
+      const b = bodyEl();
+      const t = 'translateX(' + px + 'px)';
+      inner.style.transition = transition;
+      inner.style.transform = t;
+      if(b){ b.style.transition = transition; b.style.transform = t; }
     }
 
     // A swipe must not also count as a tap that collapses/expands the group.
@@ -4673,17 +4733,27 @@
       return sign * (RUBBER_MAX * a) / (RUBBER_MAX + a);
     }
     function reset(){
-      inner.style.transition = 'transform 0.18s ease-out';
-      inner.style.transform = 'translateX(0px)';
+      setSlide(0, 'transform 0.18s ease-out');
+      bg.style.transition = 'width 0.18s ease-out, opacity 0.18s ease-out';
+      bg.style.width = '0px';
       bg.style.opacity = '0';
-      window.setTimeout(() => el.classList.remove('gswipe-active'), 190);
+      clearTimeout(cleanupTimer);
+      cleanupTimer = window.setTimeout(() => {
+        el.classList.remove('gswipe-active');
+        if(group) group.classList.remove('gswipe-group-active');
+        const b = bodyEl();
+        if(b){ b.style.transform = ''; b.style.transition = ''; }
+        if(bg.parentNode) bg.parentNode.removeChild(bg);
+      }, 190);
     }
     el.addEventListener('pointerdown', (e) => {
       if(e.pointerType === 'mouse' && e.button !== 0) return;
       if(e.target && e.target.closest && e.target.closest('.del')) return;
       dragging = true; decided = false; horizontal = false; dx = 0;
       startX = e.clientX; startY = e.clientY; pid = e.pointerId;
-      inner.style.transition = 'none';
+      clearTimeout(cleanupTimer);
+      setSlide(0, 'none');
+      bg.style.transition = 'none';
     });
     el.addEventListener('pointermove', (e) => {
       if(!dragging) return;
@@ -4694,20 +4764,34 @@
         horizontal = Math.abs(rx) > Math.abs(ry);
         if(!horizontal){ dragging = false; return; }
         fitInner();
+        label.textContent = rx > 0 ? 'Add all to Today' : 'Remove all from Today';
+        if(group){
+          group.classList.add('gswipe-group-active');
+          group.insertBefore(bg, group.firstChild);
+          placeLabel();
+        }
         el.classList.add('gswipe-active');
         try{ el.setPointerCapture(pid); }catch(err){ /* drag still works without capture */ }
       }
       if(!horizontal) return;
       dx = rx;
       const canDo = (dx > 0 && handlers.right) || (dx < 0 && handlers.left);
-      inner.style.transform = 'translateX(' + (canDo ? dx : rubber(dx)) + 'px)';
+      const move = canDo ? dx : rubber(dx);
+      setSlide(move, 'none');
       if(canDo){
         const adding = dx > 0;
-        bg.textContent = adding ? 'Add all to Today' : 'Remove all from Today';
+        label.textContent = adding ? 'Add all to Today' : 'Remove all from Today';
         bg.classList.toggle('swipe-bg-add', adding);
         bg.classList.toggle('swipe-bg-remove', !adding);
-        bg.style.opacity = String(Math.min(1, Math.abs(dx) / THRESHOLD));
+        // The bar is anchored to the side the group came from and is exactly as
+        // wide as the gap, so the label (aligned to that side) shows straight away.
+        bg.style.left = adding ? '0' : 'auto';
+        bg.style.right = adding ? 'auto' : '0';
+        bg.style.alignItems = adding ? 'flex-start' : 'flex-end';
+        bg.style.width = Math.abs(dx) + 'px';
+        bg.style.opacity = String(Math.min(1, Math.abs(dx) / LABEL_RAMP));
       }else{
+        bg.style.width = '0px';
         bg.style.opacity = '0';
       }
       if(e.cancelable) e.preventDefault();
@@ -4741,6 +4825,7 @@
 
     const THRESHOLD = 88;
     const RUBBER_MAX = 36;
+    const LABEL_RAMP = 24;
     let dragging = false;
     let decided = false;
     let isHorizontal = false;
@@ -4811,7 +4896,10 @@
       const isCommittableDir = (dx < 0 && committableDirection() === -1) ||
                                 (dx > 0 && committableDirection() === 1);
       rowEl.style.transform = 'translateX(' + (isCommittableDir ? dx : rubberBand(dx)) + 'px)';
-      bg.style.opacity = isCommittableDir ? String(Math.min(1, Math.abs(dx) / THRESHOLD)) : '0';
+      // Label sits at the edge the row is sliding away from, so it is visible
+      // from the first few pixels of the swipe.
+      bg.style.justifyContent = dx > 0 ? 'flex-start' : 'flex-end';
+      bg.style.opacity = isCommittableDir ? String(Math.min(1, Math.abs(dx) / LABEL_RAMP)) : '0';
       if(e.cancelable) e.preventDefault();
     });
 
