@@ -327,6 +327,22 @@
     overflow: hidden;
   }
 
+  /* Safe-area cap: an opaque strip over the status bar / Dynamic Island area
+     so list items never scroll up behind it. The sliding top bars stop at
+     top: var(--sat) once the header has scrolled away, which leaves this strip
+     uncovered; the cap fills it using the bar colour. Sits above .app (z 1)
+     but below dialogs/overlays (z 55+). Zero height where there is no inset
+     (desktop, Android shell). */
+  body::before{
+    content: "";
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: var(--sat);
+    background: var(--card);
+    z-index: 2;
+    pointer-events: none;
+  }
+
   .app{
     width:100%;
     max-width: none; /* full width so the top bars can bleed to the screen edge */
