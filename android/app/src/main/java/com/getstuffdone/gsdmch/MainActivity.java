@@ -18,6 +18,8 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         // Native plugin for the in-app "App Icon" setting (iOS has the same one).
         registerPlugin(AppIconPlugin.class);
+        // Native plugin that colours the status/navigation bars to match the theme (iOS has the same one).
+        registerPlugin(ChromePlugin.class);
         super.onCreate(savedInstanceState);
         setUpSystemBars();
     }
